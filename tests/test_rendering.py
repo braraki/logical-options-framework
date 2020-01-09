@@ -1,8 +1,16 @@
+import time
 from simulator.rendering import Viewer
-from simulator.balldrop import BallDropEnv
+from simulator.balldrop import BallDropSim
 
 def test_rendering():
-    sim = BallDropEnv()
+    sim = BallDropSim()
+    sim.reset()
+    sim.env.props[0].eval(sim.env.obj_dict)
+    for i in range(10):
+        sim.render()
+        obs = sim.step(None)
+        time.sleep(0.1)
+    sim.render()
     return 0
 
 if __name__ == '__main__':

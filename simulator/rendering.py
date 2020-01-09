@@ -22,7 +22,7 @@ class Viewer(object):
 
 
     def close(self):
-        self.window.close()
+        plt.close()
 
     def window_closed_by_user(self):
         self.isopen = False

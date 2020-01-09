@@ -18,6 +18,15 @@ class Sim(object):
     action_space = None
     observation_space = None
 
+    """ how to deal with proposition values?
+    the challenge is that as you have to apply object dynamics in sequence,
+    the proposition values of the state will change after each object moves.
+    this could create problems, since the order in which objects move, which
+    shouldn't matter (in theory they all move in parallel), will matter.
+    We can get around this by preserving the proposition state of the environment
+    BEFORE any object moves, and use this to evaluate object dynamics. Only once
+    every object moves do we then update the proposition state of the environment.
+    """
     def step(self, action):
         """Run one timestep of the environment's dynamics. When end of
         episode is reached, you are responsible for calling `reset()`
