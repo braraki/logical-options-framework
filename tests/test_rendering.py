@@ -9,7 +9,6 @@ def test_rendering():
     for i in range(10):
         sim.render()
         obs = sim.step(None)
-        time.sleep(0.1)
     sim.render()
     return 0
 
