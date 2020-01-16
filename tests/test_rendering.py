@@ -1,14 +1,17 @@
 import time
 from simulator.rendering import Viewer
 from simulator.balldrop import BallDropSim
+from simulator.policy import Policy
 
 def test_rendering():
     sim = BallDropSim()
+    policy = Policy()
     sim.reset()
-    sim.env.props[0].eval(sim.env.obj_dict)
-    for i in range(10):
+    # sim.env.props[0].eval(sim.env.obj_dict, 0)
+    for i in range(20):
         sim.render()
-        obs = sim.step(None)
+        action = policy.get_action(sim.env)
+        obs = sim.step(action)
     sim.render()
     return 0
 

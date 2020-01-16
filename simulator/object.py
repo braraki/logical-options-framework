@@ -5,10 +5,10 @@ from collections import OrderedDict
 # describe the Agent as an object
 class AgentObj(object):
 
-    def __init__(self, name, color, actions):
+    def __init__(self, name, color):
         self.name = name
         self.color = np.array(color)
-        self.state = None
+        self.state = None # [x, y]
 
     def create(self, x_range, y_range, exclude_from_x_range=[], exclude_from_y_range=[]):
         def random_num(i_range, exclude_from_range):
@@ -24,17 +24,26 @@ class AgentObj(object):
         x = random_num(x_range, exclude_from_x_range)
         y = random_num(y_range, exclude_from_y_range)
 
-        state = [x, y]
+        state = [x, y, 0]
         self.state = state
         return state
 
-    #
     # 
     def step(self, env, action):
-        if self.state[1] > 0:
-            if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:        
-                self.state[1] = self.state[1] - 1
-
+        if action == 0: # do nothing
+            pass
+        elif action == 1: # move left
+            if self.state[0] > 0:
+                self.state[0] = self.state[0] - 1
+        elif action == 2: # move right
+            if self.state[0] < env.dom_size[0] - 1:
+                self.state[0] = self.state[0] + 1
+        elif action == 3: # grip
+            pass
+        elif action == 4: # drop
+            pass
+        else:
+            raise ValueError('action {} is not a valid action'.format(action))
 
 # object with a location
 class LocObj(object):
@@ -71,12 +80,12 @@ class LocObj(object):
         self.state = state
         return state
 
-    def step(self, env):
+    def step(self, env, action):
         raise NotImplementedError
 
 class BasketObj(LocObj):
 
-    def step(self, env):
+    def step(self, env, action):
         return
 
 class BallObj(LocObj):
@@ -84,10 +93,26 @@ class BallObj(LocObj):
     # do not fall down if the ball is at the bottom of the env or
     # above an obstacle
     # (or if it is being held by the agent - need to add that)
-    def step(self, env):
-        if self.state[1] > 0:
-            if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:        
-                self.state[1] = self.state[1] - 1
+    def step(self, env, action):
+
+        # "holding ball a" is called hba and "holding ball b" is called hbb
+        being_held_prop = 'hb' + self.name[-1]
+        being_held = env.prop_dict[being_held_prop].value
+        
+        if being_held:
+            if action == 1: # move left
+                if self.state[0] > 0:
+                    self.state[0] = self.state[0] - 1
+            elif action == 2: # move right
+                if self.state[0] < env.dom_size[0] - 1:
+                    self.state[0] = self.state[0] + 1
+        else:
+            if self.state[1] > 0:
+                if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:        
+                    self.state[1] = self.state[1] - 1
+
+
+
         # # if the ball is not being held...
         # if not env.ball_held():
         #     # returns True if there is an obstacle at the specified location
@@ -111,7 +136,7 @@ class StaticObj(object):
     def __repr__(self):
         return self.name + ", " + type(self).__name__ + ", StaticObj, " + hex(id(self))
 
-    def step(self, env):
+    def step(self, env, action):
         return self.state
 
 
