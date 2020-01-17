@@ -99,6 +99,7 @@ class BallObj(LocObj):
         being_held_prop = 'hb' + self.name[-1]
         being_held = env.prop_dict[being_held_prop].value
         
+        # if the ball is being held, it should move with the agent
         if being_held:
             if action == 1: # move left
                 if self.state[0] > 0:
@@ -107,21 +108,11 @@ class BallObj(LocObj):
                 if self.state[0] < env.dom_size[0] - 1:
                     self.state[0] = self.state[0] + 1
         else:
+            # if the ball is not being held and it's not on the ground
+            # and if it's not above an obstacle, then it falls
             if self.state[1] > 0:
                 if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:        
                     self.state[1] = self.state[1] - 1
-
-
-
-        # # if the ball is not being held...
-        # if not env.ball_held():
-        #     # returns True if there is an obstacle at the specified location
-        #     # check if there is not an obstacle beneath the ball. If so,
-        #     # the ball falls
-        #     beneath_ball = self.state[1] - 1
-        #     if not env.check_obstacle(self.state[0], beneath_ball):
-        #         self.state[1] = beneath_ball
-
 
 # static objects are ones with trivial dynamics that don't change
 

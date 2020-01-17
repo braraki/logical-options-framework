@@ -5,8 +5,10 @@ from collections import OrderedDict
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from celluloid import Camera
 
 from .simulator import Sim
+from .rendering import Viewer
 from .object import *
 from .proposition import *
 
@@ -79,6 +81,7 @@ class BallDropSim(Sim):
     def __init__(self, dom_size=[8, 6], n_domains=100, n_traj=2):
         self.dom_size = dom_size
         self.viewer = None
+        self.camera = None
         self.env = None # Env is defined in reset()
         # self.env = Env(name='BallDropEnv', dom_size=dom_size)
         self.obj_dict = OrderedDict()
@@ -231,55 +234,7 @@ class BallDropSim(Sim):
         return [seed]
 
     def render(self, mode='human'):
-        if mode == 'human':
-            fig, ax = plt.subplots()
+        if self.viewer == None:
+            self.viewer = Viewer(mode=mode)
 
-            # get non-whitespace in the domain
-            nonwhitespace = (np.sum(self.env.obj_state, -1) > 0).astype(float)
-            # make a map of the whitespace
-            whitespace = np.ones(self.dom_size) - nonwhitespace
-            # add whitespace as an extra layer to env.obj_state
-            obj_state = np.append(self.env.obj_state, whitespace[...,None], axis=-1)
-            # add whitespace color as an extra layer to env.color_array
-            white = np.array([[1, 1, 1]])
-            color_array = np.append(self.env.color_array, white, axis=0)
-
-            # multiplying the domain, (X x Y x O) with (O x 3)
-            # to get an RGB array (X x Y x 3)
-            image = np.matmul(obj_state, color_array)
-            # flip the y axis to graph it naturally
-            image = np.flip(image, axis=1)
-            # transpose x and y coordinates to graph naturally
-            image = np.transpose(image, [1, 0, 2])
-
-            implot = plt.imshow(image)
-
-            # make string of proposition names
-            textstr = ''
-            for prop in self.prop_dict.values():
-                textstr += prop.name + ' = ' + str(prop.value) + '\n'
-            text_properties = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-
-            ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14,
-                verticalalignment='top', bbox=text_properties)
-
-            legend_keys = []
-            for obj in self.obj_dict.values():
-                legend_keys.append(mpatches.Patch(color=obj.color, label=obj.name))
-            plt.legend(
-                loc='upper right', 
-                shadow=False,
-                handles=legend_keys,
-                bbox_to_anchor=(1.3, 1.)
-            )
-                
-
-            plt.draw()
-            plt.waitforbuttonpress(0)
-            plt.close(fig)
-
-
-        # from simulator.rendering import Viewer
-
-        # if self.viewer is None:
-        #     self.viewer = Viewer(500, 500)
+        return self.viewer.render(self)
