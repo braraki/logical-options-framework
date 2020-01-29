@@ -1,6 +1,19 @@
 import numpy as np
 
-class Policy(object):
+class PolicyBase(object):
+
+    def get_action(self, env):
+        raise NotImplementedError
+
+class VIPolicy(PolicyBase):
+
+    def make_policy(self, env):
+        return
+    
+    def get_action(self, env):
+        return
+
+class HardCodedPolicy(PolicyBase):
 
     # def __init__(self, actions):
     #     self.actions = actions

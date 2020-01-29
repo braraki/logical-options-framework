@@ -2,6 +2,10 @@
 import numpy as np
 from numpy.random import randint
 from collections import OrderedDict
+# efficient sparse matrix construction:
+from scipy.sparse import dok_matrix
+# efficient matrix-vector multiplication:
+from scipy.sparse import csr_matrix
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -11,70 +15,7 @@ from .simulator import Sim
 from .rendering import Viewer
 from .object import *
 from .proposition import *
-
-class Env(object):
-
-    def __init__(self, name, dom_size, action_dict):
-        self.name = name
-        self.dom_size = dom_size
-        self.obj_state = np.zeros([*dom_size, 0])
-        self.color_array = np.zeros([0, 3])
-        self.objects = [] # may not be necessary
-        self.obj_dict = None
-        self.obj_idx_dict = {} # may not be necessary
-        self.props = [] # may not be necessary
-        self.prop_dict = None
-        self.prop_idx_dict = {} # may not be necessary
-
-        self.action_dict = action_dict
-
-    def add_props(self, prop_dict):
-        self.prop_dict = prop_dict
-        for prop in prop_dict.values():
-            self.add_prop(prop)
-
-    def add_prop(self, prop):
-        self.props.append(prop)
-        self.prop_idx_dict[prop.name] = len(self.props) - 1
-
-    # given an OrderedDict of objects, add each object to the env
-    def add_objects(self, obj_dict):
-        self.obj_dict = obj_dict
-        for obj in obj_dict.values():
-            self.add_object(obj)
-
-    # add an object to the env by adding it to the object list
-    # and by adding a dimension for the object to the object state
-    def add_object(self, obj):
-        self.objects.append(obj)
-        self.obj_idx_dict[obj.name] = len(self.objects) - 1
-        self.color_array = np.append(self.color_array, obj.color[None], axis=0)
-        self.add_obj_state(obj)
-
-    # add object to obj_state
-    def add_obj_state(self, obj):
-        # if the object is a StaticObj, its state is a 2D array
-        # of the entire domain already
-        if type(obj).mro()[1].__name__ == 'StaticObj':
-            new_obj_array = obj.state[...,None] # need to add extra singleton dim to state
-        # if the object is not a StaticObj, its state needs to be
-        # converted into the representation of a 2D array
-        else:
-            new_obj_array = np.zeros([*self.dom_size, 1])
-            new_obj_array[obj.state[0], obj.state[1], 0] = 1
-        self.obj_state = np.append(self.obj_state, new_obj_array, axis=-1)
-
-    # update object in obj_state
-    def update_obj_state(self):
-        for i, obj in enumerate(self.objects):
-            # if StaticObj, set obj_state to match the StaticObj's state
-            if type(obj).mro()[1].__name__ == 'StaticObj':
-                self.obj_state[..., i] = obj.state
-            # else, wipe obj_state (set it to 0) and set the obj's position to 1
-            else:
-                self.obj_state[..., i] = 0
-                self.obj_state[obj.state[0], obj.state[1], i] = 1
-
+from .environment import *
 
 class BallDropSim(Sim):
 
@@ -91,7 +32,7 @@ class BallDropSim(Sim):
 
     def reset(self):
         self.obj_dict.clear()
-        self.env = Env(
+        self.env = BallDropEnv(
             name='BallDropEnv',
             dom_size=self.dom_size,
             action_dict=self.action_dict
@@ -158,10 +99,19 @@ class BallDropSim(Sim):
     def add_objects(self):
         obj_dict = OrderedDict()
 
-        obj_dict['agent'] = AgentObj(name='agent', color=[1, 1, 0])
-        obj_dict['ball_a'] = BallObj(name='ball_a', color=[1, 0, 0])
-        obj_dict['ball_b'] = BallObj(name='ball_b', color=[0, 1, 0])
-        obj_dict['basket'] = BasketObj(name='basket', color=[0, 0, 1])
+        # ball is never in the top row of the state space
+        # so the top row is reserved for when the ball is being held
+        # and a row past that is reserved for when the ball is in the basket
+        ball_state_space = [self.dom_size[0], self.dom_size[1]+1]
+
+        obj_dict['agent'] = AgentObj(name='agent', color=[1, 1, 0],
+            state_space=[self.dom_size[0]])
+        obj_dict['ball_a'] = BallObj(name='ball_a', color=[1, 0, 0], 
+            state_space=ball_state_space)
+        obj_dict['ball_b'] = BallObj(name='ball_b', color=[0, 1, 0], 
+            state_space=ball_state_space)
+        obj_dict['basket'] = BasketObj(name='basket', color=[0, 0, 1], 
+            state_space=[self.dom_size[0]])
         obj_dict['obstacles'] = ObstacleObj(name='obstacles', color=[0, 0, 0], dom_size=self.dom_size)
 
         return obj_dict
@@ -218,13 +168,11 @@ class BallDropSim(Sim):
         for prop in self.prop_dict.values():
             prop.eval(self.obj_dict, action)
 
-        # 2. the agent steps
-
-        # 3. the objects step
+        # 2. the objects step
         for obj in self.obj_dict.values():
             obj.step(self.env, action)
         
-        # 4. update obj_state
+        # 3. update obj_state
         self.env.update_obj_state()
 
         return self.env
@@ -237,4 +185,4 @@ class BallDropSim(Sim):
         if self.viewer == None:
             self.viewer = Viewer(mode=mode)
 
-        return self.viewer.render(self)
+        return self.viewer.render(self.env)

@@ -1,7 +1,7 @@
 import time
 from simulator.rendering import Viewer
 from simulator.balldrop import BallDropSim
-from simulator.policy import Policy
+from simulator.policy import HardCodedPolicy
 from celluloid import Camera
 
 # human: show plots
@@ -11,8 +11,9 @@ render_mode = 'anim'
 
 def test_rendering():
     sim = BallDropSim()
-    policy = Policy()
+    policy = HardCodedPolicy()
     sim.reset()
+    T = sim.env.make_transition_function()
     for i in range(20):
         sim.render(mode=render_mode)
         action = policy.get_action(sim.env)

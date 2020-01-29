@@ -5,10 +5,12 @@ from collections import OrderedDict
 # describe the Agent as an object
 class AgentObj(object):
 
-    def __init__(self, name, color):
+    def __init__(self, name, color, state_space):
         self.name = name
         self.color = np.array(color)
         self.state = None # [x, y]
+        # state space must be a list
+        self.state_space = state_space
 
     def create(self, x_range, y_range, exclude_from_x_range=[], exclude_from_y_range=[]):
         def random_num(i_range, exclude_from_range):
@@ -24,11 +26,18 @@ class AgentObj(object):
         x = random_num(x_range, exclude_from_x_range)
         y = random_num(y_range, exclude_from_y_range)
 
-        state = [x, y, 0]
+        state = [x, y]
         self.state = state
         return state
 
-    # 
+    def set_state(self, x):
+        if type(x).__name__ == 'list':
+            x = x[0]
+        self.state[0] = x
+
+    def get_state(self):
+        return [self.state[0]]
+
     def step(self, env, action):
         if action == 0: # do nothing
             pass
@@ -48,14 +57,20 @@ class AgentObj(object):
 # object with a location
 class LocObj(object):
 
-    def __init__(self, name, color):
+    def __init__(self, name, color, state_space):
         self.name = name
         self.color = np.array(color) # [r, g, b] 0-255
         self.state = None
+        self.state_space = state_space
 
     def __repr__(self):
         return self.name + ", " + type(self).__name__ + ", LocObj, " + hex(id(self))
 
+    def set_state(self, state):
+        self.state = state
+
+    def get_state(self):
+        return self.state
 
     '''
         x_range, y_range: int or [int, int] from which x and y will be randomly selected
@@ -87,6 +102,14 @@ class BasketObj(LocObj):
 
     def step(self, env, action):
         return
+
+    def set_state(self, x):
+        if type(x).__name__ == 'list':
+            x = x[0]
+        self.state[0] = x
+
+    def get_state(self):
+        return [self.state[0]]
 
 class BallObj(LocObj):
 

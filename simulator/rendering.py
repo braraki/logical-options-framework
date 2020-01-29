@@ -4,6 +4,7 @@
 from __future__ import division
 import os
 import sys
+import time
 
 import math
 import numpy as np
@@ -28,16 +29,16 @@ class Viewer(object):
         if mode=='anim':
             self.camera = Camera(self.fig)
 
-    def render(self, sim):
+    def render(self, env):
         # get non-whitespace in the domain
-        nonwhitespace = (np.sum(sim.env.obj_state, -1) > 0).astype(float)
+        nonwhitespace = (np.sum(env.obj_state, -1) > 0).astype(float)
         # make a map of the whitespace
-        whitespace = np.ones(sim.dom_size) - nonwhitespace
+        whitespace = np.ones(env.dom_size) - nonwhitespace
         # add whitespace as an extra layer to env.obj_state
-        obj_state = np.append(sim.env.obj_state, whitespace[...,None], axis=-1)
+        obj_state = np.append(env.obj_state, whitespace[...,None], axis=-1)
         # add whitespace color as an extra layer to env.color_array
         white = np.array([[1, 1, 1]])
-        color_array = np.append(sim.env.color_array, white, axis=0)
+        color_array = np.append(env.color_array, white, axis=0)
 
         # multiplying the domain, (X x Y x O) with (O x 3)
         # to get an RGB array (X x Y x 3)
@@ -52,7 +53,7 @@ class Viewer(object):
         ##### LEGEND STUFF #####
 
         legend_keys = []
-        for obj in sim.obj_dict.values():
+        for obj in env.obj_dict.values():
             legend_keys.append(mpatches.Patch(color=obj.color, label=obj.name))
         legend1 = self.ax.legend(
             loc='upper right', 
@@ -62,7 +63,7 @@ class Viewer(object):
             )
 
         prop_legend_keys = []
-        for prop in sim.prop_dict.values():
+        for prop in env.prop_dict.values():
             prop_legend_keys.append(mpatches.Patch(color=[1,1,1], label=prop.name + ' = ' + str(prop.value)))
         self.ax.legend(
             loc = 'lower center',
@@ -79,7 +80,10 @@ class Viewer(object):
             plt.waitforbuttonpress(0)
             plt.cla()
             # plt.close(self.fig)
-        
+        elif self.mode == 'fast':
+            plt.draw()
+            plt.pause(0.01)
+            plt.cla()
         elif self.mode=='anim':
             self.camera.snap()
 
