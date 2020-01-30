@@ -134,7 +134,7 @@ class BallObj(LocObj):
             # if the ball is not being held and it's not on the ground
             # and if it's not above an obstacle, then it falls
             if self.state[1] > 0:
-                if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:        
+                if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:
                     self.state[1] = self.state[1] - 1
 
 # static objects are ones with trivial dynamics that don't change

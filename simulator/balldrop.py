@@ -162,18 +162,20 @@ class BallDropSim(Sim):
     # move objects
     # update proposition state based on object states
     def step(self, action_name):
-        action = self.action_dict[action_name]
+        self.env.step(action_name)
 
-        # 1. update the props
-        for prop in self.prop_dict.values():
-            prop.eval(self.obj_dict, action)
-
-        # 2. the objects step
-        for obj in self.obj_dict.values():
-            obj.step(self.env, action)
+        # action = self.action_dict[action_name]
         
-        # 3. update obj_state
-        self.env.update_obj_state()
+        # # 1. update the props
+        # for prop in self.prop_dict.values():
+        #     prop.eval(self.obj_dict, action)
+
+        # # 2. the objects step
+        # for obj in self.obj_dict.values():
+        #     obj.step(self.env, action)
+        
+        # # 3. update obj_state
+        # self.env.update_obj_state()
 
         return self.env
 

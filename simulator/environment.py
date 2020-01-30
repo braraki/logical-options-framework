@@ -90,6 +90,7 @@ class Env(object):
         T = [dok_matrix((ss_size, ss_size)) for a in self.action_dict]
         # iterate through every state
         idx = 0
+        # ndindex iterates through every state in (x, y, ...)
         for state in np.ndindex(*full_state_space):
             state = list(state)
             s_idx = self.state_to_idx(state)
@@ -113,12 +114,15 @@ class Env(object):
 
         return T
 
+    def make_reward_function(self):
+        raise NotImplementedError()
+
     def step(self, action_name):
         action = self.action_dict[action_name]
 
         # 1. update the props
         for prop in self.props:
-            prop.eval(self.obj_dict, action)
+            prop.eval(self.obj_dict, self.prop_dict, action)
 
         # 2. the objects step
         for obj in self.objects:
@@ -181,6 +185,30 @@ class Env(object):
         return self.viewer.render(self)
 
 class BallDropEnv(Env):
+
+    def make_reward_function(self):
+        # find the size of the state space
+        full_state_space = self.get_full_state_space()
+        ss_size = np.prod(full_state_space)
+
+        # define a transition matrix
+        R = np.zeros((ss_size,))
+        # iterate through every state
+        idx = 0
+        # ndindex iterates through every state in (x, y, ...)
+        for state in np.ndindex(*full_state_space):
+            state = list(state)
+            s_idx = self.state_to_idx(state)
+            self.set_state(state)
+
+            # the goal condition
+            if self.prop_dict['bainb'].value and self.prop_dict['bbinb'].value:
+                R[s_idx] = 100
+            idx += 1
+            if idx % 10000 == 0:
+                print(idx)
+
+        return R
 
     def get_state(self):
         state = []
