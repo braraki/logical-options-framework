@@ -79,17 +79,16 @@ class BallDropSim(Sim):
             obj_name2='basket'
             )
 
-
         # "Holding Ball A"
         prop_dict['hba'] = HoldingBallProp(
             name='hba',
-            holdee_name='ball_a'
+            ball_name='ball_a'
         )
 
         # "Holding Ball B"
         prop_dict['hbb'] = HoldingBallProp(
             name='hbb',
-            holdee_name='ball_b'
+            ball_name='ball_b'
         )
 
         return prop_dict
@@ -100,9 +99,11 @@ class BallDropSim(Sim):
         obj_dict = OrderedDict()
 
         # ball is never in the top row of the state space
-        # so the top row is reserved for when the ball is being held
-        # and a row past that is reserved for when the ball is in the basket
-        ball_state_space = [self.dom_size[0], self.dom_size[1]+1]
+        # so that row is reserved for indicating if the ball
+        # is being held or not
+        # (I decided to not add a 3rd dimension because it's too
+        # space inefficient)
+        ball_state_space = [self.dom_size[0], self.dom_size[1]]
 
         obj_dict['agent'] = AgentObj(name='agent', color=[1, 1, 0],
             state_space=[self.dom_size[0]])
@@ -163,19 +164,6 @@ class BallDropSim(Sim):
     # update proposition state based on object states
     def step(self, action_name):
         self.env.step(action_name)
-
-        # action = self.action_dict[action_name]
-        
-        # # 1. update the props
-        # for prop in self.prop_dict.values():
-        #     prop.eval(self.obj_dict, action)
-
-        # # 2. the objects step
-        # for obj in self.obj_dict.values():
-        #     obj.step(self.env, action)
-        
-        # # 3. update obj_state
-        # self.env.update_obj_state()
 
         return self.env
 

@@ -103,6 +103,10 @@ class Env(object):
                 ns_idx = self.state_to_idx(new_state)
 
                 action = self.action_dict[action_name]
+
+                # if action_name == 'grip' and state[0] == state[1]:
+                #     if state[2] == 4:
+                #         print('hi')
                 T[action][s_idx, ns_idx] = 1
             idx += 1
             if idx % 10000 == 0:
@@ -120,13 +124,13 @@ class Env(object):
     def step(self, action_name):
         action = self.action_dict[action_name]
 
-        # 1. update the props
-        for prop in self.props:
-            prop.eval(self.obj_dict, self.prop_dict, action)
-
-        # 2. the objects step
+        # 1. the objects step
         for obj in self.objects:
             obj.step(self, action)
+
+        # 2. update the props
+        for prop in self.props:
+            prop.eval(self.obj_dict)
         
         # 3. update obj_state
         self.update_obj_state()                
@@ -215,26 +219,13 @@ class BallDropEnv(Env):
         for obj in self.objects:
             # don't include obstacles
             if type(obj).mro()[1].__name__ != 'StaticObj':
-                if obj.name == 'ball_a':
-                    # if ball a is in basket, set ball a's
+                if obj.name == 'ball_a' or obj.name == 'ball_b':
+                    state.append(obj.state[0])
+                    # if ball is being held, set ball's
                     # y value to be state_space[1]-1
-                    # (aka dom_size[1])
-                    state.append(obj.state[0])
-                    if self.prop_dict['bainb'].value:
-                        state.append(obj.state_space[1]-1)
-                    # if ball a is beling held, set ball a's
-                    # y value to be state_space[1]-2
                     # (aka dom_size[1]-1)
-                    elif self.prop_dict['hba'].value:
-                        state.append(obj.state_space[1]-2)
-                    else:
-                        state.append(obj.state[1])
-                elif obj.name == 'ball_b':
-                    state.append(obj.state[0])
-                    if self.prop_dict['bbinb'].value:
+                    if obj.state[2]:
                         state.append(obj.state_space[1]-1)
-                    elif self.prop_dict['hbb'].value:
-                        state.append(obj.state_space[1]-2)
                     else:
                         state.append(obj.state[1])
                 else:
@@ -246,40 +237,29 @@ class BallDropEnv(Env):
     # set object and prop states to match
     def set_state(self, state):
         idx = 0 # index along the whole state
+        ball_being_held = False
         for obj in self.objects:
             # don't include obstacles
             if type(obj).mro()[1].__name__ != 'StaticObj':
                 ndim = len(obj.state_space)
                 obj_state = state[idx : idx+ndim]
-                if obj.name == 'ball_a':
+                if obj.name == 'ball_a' or obj.name == 'ball_b':
                     # if ball a's y value is state_space[1]-1,
-                    # then it is the basket (bainb is True)
+                    # then it is being held
                     if obj_state[1] == obj.state_space[1]-1:
-                        obj_state[1] = 0
-                        self.prop_dict['bainb'].value = True
-                    else:
-                        self.prop_dict['bainb'].value = False
-                    # if ball a's y value is state_space[1]-2
-                    # then it is being held (hba is True)
-                    if obj_state[1] == obj.state_space[1]-2:
                         obj_state[1] = self.dom_size[1]-2
-                        self.prop_dict['hba'].value = True
+                        # 3rd dimension = 1 bc it's being held
+                        obj_state.append(1)
+                        ball_being_held = True
                     else:
-                        self.prop_dict['hba'].value = False
-                elif obj.name == 'ball_b':
-                    if obj_state[1] == obj.state_space[1]-1:
-                        obj_state[1] = 0
-                        self.prop_dict['bbinb'].value = True
-                    else:
-                        self.prop_dict['bbinb'].value = False
-                    if obj_state[1] == obj.state_space[1]-2:
-                        obj_state[1] = self.dom_size[1]-2
-                        self.prop_dict['hbb'].value = True
-                    else:
-                        self.prop_dict['hbb'].value = False
+                        # 3rd dimension = 0 bc it's not being held
+                        obj_state.append(0)
                 obj.set_state(obj_state)
                 idx += ndim
+        self.obj_dict['agent'].state[2] = int(ball_being_held)
         self.update_obj_state()
+        for prop in self.props:
+            prop.eval(self.obj_dict)
 
     # ie [8, 6, 8, 6, 2, 2, 2, 2]
     #     x, y, x, y, p, p, p, p

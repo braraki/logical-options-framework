@@ -8,7 +8,7 @@ class AgentObj(object):
     def __init__(self, name, color, state_space):
         self.name = name
         self.color = np.array(color)
-        self.state = None # [x, y]
+        self.state = None # [x, y, h] --> h for if it's holding something
         # state space must be a list
         self.state_space = state_space
 
@@ -25,8 +25,9 @@ class AgentObj(object):
 
         x = random_num(x_range, exclude_from_x_range)
         y = random_num(y_range, exclude_from_y_range)
+        h = 0
 
-        state = [x, y]
+        state = [x, y, h]
         self.state = state
         return state
 
@@ -39,6 +40,10 @@ class AgentObj(object):
         return [self.state[0]]
 
     def step(self, env, action):
+        self.apply_action(env, action)
+        self.apply_dynamics(env)
+
+    def apply_action(self, env, action):
         if action == 0: # do nothing
             pass
         elif action == 1: # move left
@@ -54,13 +59,16 @@ class AgentObj(object):
         else:
             raise ValueError('action {} is not a valid action'.format(action))
 
+    def apply_dynamics(self, env):
+        return
+
 # object with a location
 class LocObj(object):
 
     def __init__(self, name, color, state_space):
         self.name = name
         self.color = np.array(color) # [r, g, b] 0-255
-        self.state = None
+        self.state = None # [x, y, h] --> h is whether or not it's being held
         self.state_space = state_space
 
     def __repr__(self):
@@ -90,17 +98,28 @@ class LocObj(object):
 
         x = random_num(x_range, exclude_from_x_range)
         y = random_num(y_range, exclude_from_y_range)
+        h = 0
 
-        state = [x, y]
+        state = [x, y, h]
         self.state = state
         return state
 
     def step(self, env, action):
-        raise NotImplementedError
+        self.apply_action(env, action)
+        self.apply_dynamics(env)
+
+    def apply_action(self, env, action):
+        return NotImplementedError
+    
+    def apply_dynamics(self, env):
+        return NotImplementedError
 
 class BasketObj(LocObj):
 
-    def step(self, env, action):
+    def apply_action(self, env, action):
+        return
+
+    def apply_dynamics(self, env):
         return
 
     def set_state(self, x):
@@ -113,14 +132,8 @@ class BasketObj(LocObj):
 
 class BallObj(LocObj):
 
-    # do not fall down if the ball is at the bottom of the env or
-    # above an obstacle
-    # (or if it is being held by the agent - need to add that)
-    def step(self, env, action):
-
-        # "holding ball a" is called hba and "holding ball b" is called hbb
-        being_held_prop = 'hb' + self.name[-1]
-        being_held = env.prop_dict[being_held_prop].value
+    def apply_action(self, env, action):
+        being_held = self.state[2]
         
         # if the ball is being held, it should move with the agent
         if being_held:
@@ -130,15 +143,30 @@ class BallObj(LocObj):
             elif action == 2: # move right
                 if self.state[0] < env.dom_size[0] - 1:
                     self.state[0] = self.state[0] + 1
+            elif action == 4: # drop
+                env.obj_dict['agent'].state[2] = 0
+                self.state[2] = 0
         else:
-            # if the ball is not being held and it's not on the ground
-            # and if it's not above an obstacle, then it falls
+            if action == 3: # grip
+                if env.obj_dict['agent'].state[0] == self.state[0]:
+                    if env.obj_dict['agent'].state[1] == self.state[1] + 1:
+                        if env.obj_dict['agent'].state[2] != 1:
+                            env.obj_dict['agent'].state[2] = 1
+                            self.state[2] = 1
+    
+    # do not fall down if the ball is at the bottom of the env or
+    # above an obstacle
+    def apply_dynamics(self, env):
+        being_held = self.state[2]
+
+        # if the ball is not being held and it's not on the ground
+        # and if it's not above an obstacle, then it falls
+        if not being_held:
             if self.state[1] > 0:
                 if not env.obj_dict['obstacles'].state[self.state[0], self.state[1] - 1]:
                     self.state[1] = self.state[1] - 1
 
 # static objects are ones with trivial dynamics that don't change
-
 class StaticObj(object):
 
     def __init__(self, name, color, dom_size):
@@ -151,7 +179,14 @@ class StaticObj(object):
         return self.name + ", " + type(self).__name__ + ", StaticObj, " + hex(id(self))
 
     def step(self, env, action):
-        return self.state
+        self.apply_action(env, action)
+        self.apply_dynamics(env)
+
+    def apply_action(self, env, action):
+        return
+
+    def apply_dynamics(self, env):
+        return
 
 
 class ObstacleObj(StaticObj):
