@@ -81,6 +81,37 @@ class Env(object):
             idx += 1
         self.update_obj_state()
 
+    def make_prop_map(self):
+        # find the size of the state space
+        full_state_space = self.get_full_state_space()
+        ss_size = np.prod(full_state_space)
+
+        # include empty prop
+        nP = len(self.props) + 1
+
+        # define a prop map
+        P = np.zeros((nP, ss_size))
+        # iterate through every state
+        idx = 0
+        # ndindex iterates through every state in (x, y, ...)
+        for state in np.ndindex(*full_state_space):
+            state = list(state)
+            s_idx = self.state_to_idx(state)
+            self.set_state(state)
+
+            empty = True
+            for pi, prop in enumerate(self.props):
+                if prop.value:
+                    P[pi, s_idx] = 1
+                    empty = False
+            if empty:
+                P[-1, s_idx] = 1
+            idx += 1
+            if idx % 10000 == 0:
+                print(idx)
+
+        return P
+
     def make_transition_function(self, plot=False):
         # find the size of the state space
         full_state_space = self.get_full_state_space()
@@ -206,8 +237,10 @@ class BallDropEnv(Env):
             self.set_state(state)
 
             # the goal condition
-            if self.prop_dict['bainb'].value and self.prop_dict['bbinb'].value:
-                R[s_idx] = 100
+            if self.prop_dict['bainb'].value and not self.prop_dict['bbinb'].value:
+                R[s_idx] = 10
+            elif self.prop_dict['bainb'].value and self.prop_dict['bbinb'].value:
+                R[s_idx] = 20
             idx += 1
             if idx % 10000 == 0:
                 print(idx)

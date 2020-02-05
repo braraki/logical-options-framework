@@ -43,8 +43,8 @@ def make_transitions():
     R = sim.env.make_reward_function()
     save_reward_function(sim.env.name, R)
     
-    T = sim.env.make_transition_function(plot)
-    save_transitions(sim.env.name, T)
+    # T = sim.env.make_transition_function(plot)
+    # save_transitions(sim.env.name, T)
 
 if __name__ == '__main__':
     make_transitions()

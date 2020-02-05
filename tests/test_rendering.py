@@ -12,12 +12,7 @@ render_mode = 'human'
 def test_rendering():
     sim = BallDropSim()
     sim.reset()
-    initial_state = sim.env.get_state()
-    policy = VIPolicy()
-    policy.make_transition_function(sim.env)
-    sim.env.set_state(initial_state)
-    policy.make_policy(sim.env)
-    # policy = HardCodedPolicy()
+    policy = HardCodedPolicy()
     for i in range(20):
         sim.render(mode=render_mode)
         action = policy.get_action(sim.env)
