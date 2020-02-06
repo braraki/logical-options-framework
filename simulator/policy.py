@@ -113,7 +113,7 @@ class LVIPolicy(VIPolicy):
         print("props: {}".format(self.P[:, s_idx]))
 
         next_f = np.argmax(tm[f, :, p])
-        print(tm[f, :, p])
+        # print(tm[f, :, p])
         
         return next_f
 
@@ -178,6 +178,7 @@ class LVIPolicy(VIPolicy):
                     Q[f, :, i] = t.dot(R[f] + gamma * V[f])
             V = np.max(Q, axis=2)
             preV = np.tile(V[None, ...], (nF, 1, 1))
+            
             V = np.sum(preV*C, axis=1)
             # print('hi')
 

@@ -10,13 +10,28 @@ class Proposition(object):
     def eval(self, obj_dict):
         raise NotImplementedError
 
+# this is like an AND statement over two props
+# if this is true, then when you return the overall prop state,
+# list the children props as 0 and this prop as 1
+class CombinedProp(Proposition):
+
+    def __init__(self, name, prop1, prop2, prop_idxs):
+        super().__init__(name)
+        self.prop1 = prop1
+        self.prop2 = prop2
+        self.prop_idxs = prop_idxs
+
+    def eval(self, obj_dict):
+        self.value = (self.prop1.value and self.prop2.value)
+
+        return self.value
+
 # true if ball_a_location == basket_location
 # neither obj can be a StaticObj
 class SameLocationProp(Proposition):
 
     def __init__(self, name, obj_name1, obj_name2):
-        self.name = name
-        self.value = None
+        super().__init__(name)
 
         self.obj1 = obj_name1
         self.obj2 = obj_name2

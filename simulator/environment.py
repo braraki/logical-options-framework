@@ -99,13 +99,19 @@ class Env(object):
             s_idx = self.state_to_idx(state)
             self.set_state(state)
 
-            empty = True
-            for pi, prop in enumerate(self.props):
-                if prop.value:
-                    P[pi, s_idx] = 1
-                    empty = False
-            if empty:
-                P[-1, s_idx] = 1
+            prop_state = []
+            for prop in self.props:
+                prop_state.append(int(prop.value))
+                if type(prop).__name__ == 'CombinedProp' and prop.value:
+                    prop_state[prop.prop_idxs[0]] = 0
+                    prop_state[prop.prop_idxs[1]] = 0
+                    
+            if 1 not in prop_state:
+                prop_state.append(1)
+            else:
+                prop_state.append(0)
+            P[:, s_idx] = prop_state
+
             idx += 1
             if idx % 10000 == 0:
                 print(idx)
@@ -220,6 +226,9 @@ class Env(object):
         return self.viewer.render(self)
 
 class BallDropEnv(Env):
+
+    def __init__(self, name, dom_size, action_dict):
+        super().__init__(name, dom_size, action_dict)
 
     def make_reward_function(self):
         # find the size of the state space

@@ -16,10 +16,10 @@ def make_tm():
     # drop ball A in basket, THEN drop ball B in basket
 
     # prop order:
-    # bainb, bbinb, hba, hbb
+    # ainb, binb, abinb, hba, hbb
 
     nF = 4
-    nP = 5
+    nP = 4
     tm = np.zeros((nF, nF, nP))
 
     # initial state
@@ -28,8 +28,9 @@ def make_tm():
     # 1 1 0 0 0 0
     # 2 0 0 0 0 0
     # 3 0 0 0 0 0
-    tm[0, 0, 1:] = 1
-    tm[0, 1, 0] = 1
+    tm[0, 0, :] = 1
+    tm[0, 0, 1] = 0
+    tm[0, 1, 1] = 1
     # S1
     #   a b c d e
     # 0 0 0 0 0 0
@@ -37,8 +38,8 @@ def make_tm():
     # 2 0 1 0 0 0
     # 3 0 0 0 0 0
     tm[1, 1, :] = 1
-    tm[1, 1, 1] = 0
-    tm[1, 2, 1] = 1
+    tm[1, 1, 2] = 0
+    tm[1, 2, 2] = 1
     # S2
     #   a b c d e
     # 0 0 0 0 0 0

@@ -66,30 +66,38 @@ class BallDropSim(Sim):
         prop_dict = OrderedDict()
 
         # "Ball A in Basket"
-        prop_dict['bainb'] = SameLocationProp(
-            name='bainb',
+        prop_dict['ainb'] = SameLocationProp(
+            name='ainb',
             obj_name1='ball_a',
             obj_name2='basket'
             )
 
         # "Ball B in Basket"
-        prop_dict['bbinb'] = SameLocationProp(
-            name='bbinb',
+        prop_dict['binb'] = SameLocationProp(
+            name='binb',
             obj_name1='ball_b',
             obj_name2='basket'
             )
 
-        # "Holding Ball A"
-        prop_dict['hba'] = HoldingBallProp(
-            name='hba',
-            ball_name='ball_a'
+        # "Ball A and Ball B in Basket"
+        prop_dict['abinb'] = CombinedProp(
+            name='abinb',
+            prop1=prop_dict['ainb'],
+            prop2=prop_dict['binb'],
+            prop_idxs=[0,1]
         )
 
-        # "Holding Ball B"
-        prop_dict['hbb'] = HoldingBallProp(
-            name='hbb',
-            ball_name='ball_b'
-        )
+        # # "Holding Ball A"
+        # prop_dict['hba'] = HoldingBallProp(
+        #     name='hba',
+        #     ball_name='ball_a'
+        # )
+
+        # # "Holding Ball B"
+        # prop_dict['hbb'] = HoldingBallProp(
+        #     name='hbb',
+        #     ball_name='ball_b'
+        # )
 
         return prop_dict
 
