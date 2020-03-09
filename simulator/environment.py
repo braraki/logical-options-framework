@@ -81,6 +81,9 @@ class Env(object):
             idx += 1
         self.update_obj_state()
 
+    # matrix/function that stores this info:
+    # given a prop, returns in which states it is true
+    # given a state, returns which props are true
     def make_prop_map(self):
         # find the size of the state space
         full_state_space = self.get_full_state_space()
@@ -118,6 +121,7 @@ class Env(object):
 
         return P
 
+    # T[s, s']
     def make_transition_function(self, plot=False):
         # find the size of the state space
         full_state_space = self.get_full_state_space()

@@ -87,17 +87,17 @@ class BallDropSim(Sim):
             prop_idxs=[0,1]
         )
 
-        # # "Holding Ball A"
-        # prop_dict['hba'] = HoldingBallProp(
-        #     name='hba',
-        #     ball_name='ball_a'
-        # )
+        # "Holding Ball A"
+        prop_dict['hba'] = HoldingBallProp(
+            name='hba',
+            ball_name='ball_a'
+        )
 
-        # # "Holding Ball B"
-        # prop_dict['hbb'] = HoldingBallProp(
-        #     name='hbb',
-        #     ball_name='ball_b'
-        # )
+        # "Holding Ball B"
+        prop_dict['hbb'] = HoldingBallProp(
+            name='hbb',
+            ball_name='ball_b'
+        )
 
         return prop_dict
 

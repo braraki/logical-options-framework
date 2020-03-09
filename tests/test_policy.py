@@ -19,7 +19,7 @@ def make_tm():
     # ainb, binb, abinb, hba, hbb
 
     nF = 4
-    nP = 4
+    nP = 6
     tm = np.zeros((nF, nF, nP))
 
     # initial state

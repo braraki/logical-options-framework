@@ -80,6 +80,169 @@ class VIPolicy(PolicyBase):
 
         return action_name
 
+class OptionsBase(PolicyBase)):
+
+    def __init__(self):
+        self.Q = None
+        self.high_num_iter = 5
+        self.low_num_iter = 20
+        self.T = None
+
+    def init_value_function(self, ss_size, nF):
+        V = np.zeros((nF, ss_size))
+        return V
+
+    def init_low_level_value_functions(self, ss_size, nO):
+        V = np.zeros((nO, ss_size))
+        return V
+
+    def make_transition_function(self, env):
+        initial_state = env.get_state()
+        T = env.make_transition_function()
+        self.T = T
+        env.set_state(initial_state)
+
+    # for options, need to make a reward function
+    # for each option - in other words,
+    # take the option/prop and use the prop map
+    # to determine which states
+    # (the states where the prop is true) to reward
+    def make_low_level_reward_functions(self):
+        # the reward function for each state is basically
+        # the same as the prop map - for a given prop,
+        # states where the prop is true have +0 reward
+        # all other states have -1 reward
+        # -1 bc each time step is penalized
+        R = np.copy(self.P) - 1
+
+        # the main difference is that R should not include
+        # the empty prop
+        R = R[:-1]
+
+        return R
+
+    # the high-level reward function is only over the options
+    # not the low-level state space
+    def make_reward_function(self, nF, nO):
+        R = np.ones((nF, nO))
+        # trap has negative reward
+        R[-1, :] = -10
+        # goal has positive
+        R[-2, :] = 10
+        return R
+
+    def make_prop_map(self, env):
+        initial_state = env.get_state()
+        P = env.make_prop_map()
+        self.P = P
+        env.set_state(initial_state)
+
+    def make_low_level_policies(self, env):
+        # assume you have access to
+        # self.P: p x s
+        # self.T: a x s x s (a list over a)
+
+        # number of options is # of non-empty props
+        nO = len(env.props) - 1
+        ss_size = np.prod(env.get_full_state_space())
+
+        # these are the low-level reward funcs
+        # reward for achieving a given option
+        # lowR: o x s (o = p - 1 since empty prop is not included)
+        lowR = self.make_low_level_reward_functions()
+        # low-level value funcs:
+        # basically a matrix where each row is the valu function
+        # for a given option
+        # lowV: o x s
+        lowV = self.init_low_level_value_functions(ss_size, nO)
+
+        gamma = 0.99
+
+        # lowQ: o x s x a
+        lowQ = np.zeros((nO, ss_size, nA))
+        for k in range(self.low_num_iter):
+            for i, t in enumerate(self.T):
+                # (s x o) = (s x s) times (s x o + s x o)
+                preQ = t.dot(lowR.T + gamma * lowV.T)
+
+                # (o x s x 1) = (o x s x 1)
+                lowQ[:, :, i] = (preQ.T)[:, :, None]
+
+            # (o x s x a) ==> (o x s)
+            lowV = np.max(lowQ, axis=2)
+
+        return lowQ, lowV
+
+    def make_policy(self, env, tm):
+        # TM: f x f x p
+        # P: p x s
+        self.make_prop_map(env)
+
+        # T: a x s x s (a list over a)
+        self.make_transition_function(env)
+
+        # lowQ: o x s x a
+        # lowV: o x s
+        lowQ, lowV = self.make_low_level_policies(env)
+
+        nF = tm.shape[0]
+        ss_size = np.prod(env.get_full_state_space())
+        
+        # R: f x o
+        R = self.make_reward_function(nF, nO)
+        # R: (f x o) times (o x s) ==> (f x s)
+        R = R.dot(lowV)
+        # V: f x s
+        V = self.init_value_function(ss_size, nF)
+
+        # P(s' | s, o) ---> probability of s' given
+        # option o and current state s
+        # (o x s) .times (o x s)
+        pre_poss = self.P[:-1] * lowV
+        # get the indices of the max value in each row
+        # this is the end state of each option
+        poss_max_indices = np.argmax(pre_poss, axis=1)
+        poss = np.zeros_like(pre_poss)
+        poss[np.arange(pre_poss.shape[0]), poss_max_indices] = 1
+        # poss is "probability of s' given o and s"
+
+        # transform P to be a new shape
+        # p x s ===> f x f x p x s
+        PM = self.P[None, None, ...]
+        PM = np.tile(PM, (nF, nF, 1, 1))
+
+        # assign the prob of f' given p to every state s
+        # (f x f x p x 1) times (f x f x p x s)
+        preC = tm[..., None]*PM
+
+        # sum over props so that you assign total prob
+        # of f' for every state s
+        # (f x f x p x s) ==> (f x f x s)
+        C = np.sum(preC, axis=2)
+
+        nA = len(self.T) # number of actions
+        gamma = 0.99
+
+        # Q: f x s x o
+        Q = np.zeros((nF, nO, nA))
+        for k in range(self.num_iter):
+            # (f x s x o) = (o x f x f) times (f x s)
+            # Q = T * (R + gamma*V)
+
+
+            for f in range(nF):
+                for i, t in enumerate(self.T):
+                    # (s x 1) = (s x s) times (s x 1 + s x 1)
+                    Q[f, :, i] = t.dot(R[f] + gamma * V[f])
+            V = np.max(Q, axis=2)
+            preV = np.tile(V[None, ...], (nF, 1, 1))
+
+            V = np.sum(preV*C, axis=1)
+            # print('hi')
+
+
+        self.Q = Q
+
 class LVIPolicy(VIPolicy):
 
     def __init__(self):
@@ -109,11 +272,19 @@ class LVIPolicy(VIPolicy):
     def get_fsa_state(self, env, f, tm):
         state = env.get_state()
         s_idx = env.state_to_idx(state)
-        p = np.argmax(self.P[:, s_idx])
-        print("props: {}".format(self.P[:, s_idx]))
 
-        next_f = np.argmax(tm[f, :, p])
-        # print(tm[f, :, p])
+        # if more than 2 props are active
+        # if np.sum(self.P[:, s_idx]) > 1:
+        ps = np.argwhere(1 == self.P[:, s_idx])
+        next_fs = np.argmax(tm[f:, ps])
+        next_f_coord = np.argwhere(next_fs != f)[0]
+        next_f = next_fs[next_f_coord]
+
+        # p = np.argmax(self.P[:, s_idx])
+        # print("props: {}".format(self.P[:, s_idx]))
+
+        # next_f = np.argmax(tm[f, :, p])
+        # # print(tm[f, :, p])
         
         return next_f
 
@@ -178,7 +349,7 @@ class LVIPolicy(VIPolicy):
                     Q[f, :, i] = t.dot(R[f] + gamma * V[f])
             V = np.max(Q, axis=2)
             preV = np.tile(V[None, ...], (nF, 1, 1))
-            
+
             V = np.sum(preV*C, axis=1)
             # print('hi')
 
