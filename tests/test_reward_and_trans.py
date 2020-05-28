@@ -37,16 +37,30 @@ def save_reward_function(env_name, R):
     np.savez(path_name, R=R)
 
 
-def make_transitions():
-    # sim = BallDropSim()
-    sim = LineWorldSim()
+def make_transitions_balldrop():
+    sim = BallDropSim()
     sim.reset()
 
     R = sim.env.make_reward_function()
     save_reward_function(sim.env.name, R)
     
+    # T = sim.env.make_transition_function(plot)
+    # save_transitions(sim.env.name, T)
+
+def make_transitions_lineworld():
+    sim = LineWorldSim()
+    sim.reset()
+
+    R = sim.env.make_reward_function()
+
+    # save_reward_function(sim.env.name, R)
+    
     T = sim.env.make_transition_function(plot)
-    save_transitions(sim.env.name, T)
+    # save_transitions(sim.env.name, T)
+
+    return R, T
 
 if __name__ == '__main__':
-    make_transitions()
+    R, T = make_transitions_lineworld()
+    print(R)
+    print(T[0].toarray())

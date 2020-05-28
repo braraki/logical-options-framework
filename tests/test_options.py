@@ -10,8 +10,8 @@ from celluloid import Camera
 # note: the first call to 'render' sets the render mode
 render_mode = 'anim'
 
-# 'vi', 'lvi', 'hardcoded'
-policy_mode = 'lvi'
+# 'vi', 'lvi', 'hardcoded', 'options'
+policy_mode = 'options'
 
 def make_tm_balldrop():
     # drop ball A in basket, THEN drop ball B in basket
@@ -67,7 +67,7 @@ def make_tm_lineworld():
     # 0 0 1 1
     # 1 1 0 0
     # 2 0 0 0
-    # 3 0 0 0
+    # 3 0 0 0``5`
     tm[0, 0, :] = 1
     tm[0, 0, 0] = 0
     tm[0, 1, 0] = 1
@@ -107,47 +107,33 @@ def make_tm_lineworld():
 
     return tm
 
-def test_policy(sim, tm=None):
+def test_options(sim, tm=None):
     sim.reset()
-    if policy_mode == 'vi':
-        policy = VIPolicy()
-        policy.make_policy(sim.env)
-    elif policy_mode == 'hardcoded':
-        policy = HardCodedPolicy()
-    elif policy_mode == 'lvi':
-        policy = LVIPolicy()
-        policy.make_policy(sim.env, tm)
-        f = 0
+
+    policy = OptionsPolicy()
+    policy.make_policy(sim.env, tm)
+    f= 0
 
     for i in range(20):
         sim.render(mode=render_mode)
-        if policy_mode == 'lvi':
-            action = policy.get_action(sim.env, f)
-        else:
-            action = policy.get_action(sim.env)
+        option = policy.get_option(sim.env, f)
+        action = policy.get_action(sim.env, option)
         obs = sim.step(action)
-        if policy_mode == 'lvi':
-            print("start f: " + str(f))
-            f = policy.get_fsa_state(sim.env, f, tm)
-            print("next f: " + str(f))
+        f = policy.get_fsa_state(sim.env, f, tm)
+        print("option: {} | FSA state: {}".format(option, f))
     camera = sim.render()
 
     if render_mode == 'anim':
         animation = camera.animate()
-        animation.save(sim.env.name + '_policy.gif', writer='imagemagick')
+        animation.save(sim.env.name + '_options.gif', writer='imagemagick')
     return 0
 
 # fix the goal so that it is to put ball a THEN ball b into the basket
 
 if __name__ == '__main__':
-    sim = LineWorldSim()
-    tm = None
-    if policy_mode == 'lvi':
-        tm = make_tm_lineworld()
-    test_policy(sim, tm)
-
     # sim = BallDropSim()
-    # tm = None
-    # if policy_mode == 'lvi':
-    #     tm = make_tm_balldrop()
-    # test_policy(sim, tm)
+    # tm = make_tm_balldrop()
+
+    sim = LineWorldSim()
+    tm = make_tm_lineworld()
+    test_options(sim, tm)

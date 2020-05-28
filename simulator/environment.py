@@ -316,3 +316,53 @@ class BallDropEnv(Env):
             if type(obj).mro()[1].__name__ != 'StaticObj':
                 state_space.extend(obj.state_space)
         return state_space
+
+class LineWorldEnv(Env):
+
+    def __init__(self, name, dom_size, action_dict):
+        super().__init__(name, dom_size, action_dict)
+
+    def make_reward_function(self):
+        # find the size of the state space
+        full_state_space = self.get_full_state_space()
+        ss_size = np.prod(full_state_space)
+
+        # define a reward function (aka a vector storing 
+        # reward for each state)
+        R = np.zeros((ss_size,))
+        # iterate through every state
+        idx = 0
+        # ndindex iterates through every state in (x, y, ...)
+        for state in np.ndindex(*full_state_space):
+            state = list(state)
+            s_idx = self.state_to_idx(state)
+            self.set_state(state)
+
+            # the goal condition
+            if self.prop_dict['ona'].value or self.prop_dict['onb'].value:
+                R[s_idx] = 10
+            idx += 1
+            if idx % 10000 == 0:
+                print(idx)
+
+        return R
+
+    def get_state(self):
+        state = self.obj_dict['agent'].get_state()
+
+        return state
+
+    # given state of form [3, 2, 4, 8, 1, 0, 0, 0]
+    # set object and prop states to match
+    def set_state(self, state):
+        self.obj_dict['agent'].set_state(state[0])
+        # self.obj_dict['goal_a'].set_state(state[1])
+        # self.obj_dict['goal_b'].set_state(state[2])
+        self.update_obj_state()
+        for prop in self.props:
+            prop.eval(self.obj_dict)
+
+    # ie [8]
+    def get_full_state_space(self):
+        state_space = [self.dom_size[0]]
+        return state_space

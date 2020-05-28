@@ -62,6 +62,29 @@ class AgentObj(object):
     def apply_dynamics(self, env):
         return
 
+# describe the Agent as an object
+class LineAgentObj(AgentObj):
+
+    def __init__(self, name, color, state_space):
+        super().__init__(name, color, state_space)
+
+    def apply_action(self, env, action):
+        if action == 0: # do nothing
+            pass
+        # note: I'm allowing the agent to wrap around the environment
+        elif action == 1: # move left
+            if self.state[0] > 0:
+                self.state[0] = self.state[0] - 1
+            else:
+                self.state[0] = env.dom_size[0] - 1
+        elif action == 2: # move right
+            if self.state[0] < env.dom_size[0] - 1:
+                self.state[0] = self.state[0] + 1
+            else:
+                self.state[0] = 0
+        else:
+            raise ValueError('action {} is not a valid action'.format(action))
+
 # object with a location
 class LocObj(object):
 
@@ -113,6 +136,22 @@ class LocObj(object):
     
     def apply_dynamics(self, env):
         return NotImplementedError
+
+class LineGoalObj(LocObj):
+
+    def apply_action(self, env, action):
+        return
+
+    def apply_dynamics(self, env):
+        return
+
+    def set_state(self, x):
+        if type(x).__name__ == 'list':
+            x = x[0]
+        self.state[0] = x
+
+    def get_state(self):
+        return self.state
 
 class BasketObj(LocObj):
 
