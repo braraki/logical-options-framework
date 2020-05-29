@@ -99,6 +99,22 @@ class BallDropSim(Sim):
             ball_name='ball_b'
         )
 
+        # "Ball A and Holding Ball B"
+        prop_dict['ainbhbb'] = CombinedProp(
+            name='ainbhbb',
+            prop1=prop_dict['ainb'],
+            prop2=prop_dict['hbb'],
+            prop_idxs=[0,4]
+        )
+
+        # "Ball B and Holding Ball A"
+        prop_dict['binbhba'] = CombinedProp(
+            name='binbhba',
+            prop1=prop_dict['binb'],
+            prop2=prop_dict['hba'],
+            prop_idxs=[1,3]
+        )
+
         return prop_dict
 
     # create and initialize objects

@@ -250,9 +250,9 @@ class BallDropEnv(Env):
             self.set_state(state)
 
             # the goal condition
-            if self.prop_dict['bainb'].value and not self.prop_dict['bbinb'].value:
+            if self.prop_dict['ainb'].value and not self.prop_dict['binb'].value:
                 R[s_idx] = 10
-            elif self.prop_dict['bainb'].value and self.prop_dict['bbinb'].value:
+            elif self.prop_dict['ainb'].value and self.prop_dict['binb'].value:
                 R[s_idx] = 20
             idx += 1
             if idx % 10000 == 0:

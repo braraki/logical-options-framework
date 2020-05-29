@@ -17,36 +17,42 @@ def make_tm_balldrop():
     # drop ball A in basket, THEN drop ball B in basket
 
     # prop order:
-    # ainb, binb, abinb, hba, hbb
+    # ainb, ainb, abinb, hba, hbb, ainbhbb, binbhba
 
     nF = 4
-    nP = 6
+    nP = 8
     tm = np.zeros((nF, nF, nP))
 
     # initial state
-    #   a b c d e
-    # 0 0 1 1 1 1
-    # 1 1 0 0 0 0
-    # 2 0 0 0 0 0
-    # 3 0 0 0 0 0
+    #   a b c d e f g
+    # 0 0 0 1 1 1 0 1
+    # 1 1 0 0 0 0 1 0
+    # 2 0 0 0 0 0 0 0
+    # 3 0 0 0 0 0 0 0
     tm[0, 0, :] = 1
-    tm[0, 0, 1] = 0
-    tm[0, 1, 1] = 1
+    tm[0, 0, 0] = 0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 5] = 0
+    tm[0, 1, 5] = 1
     # S1
-    #   a b c d e
-    # 0 0 0 0 0 0
-    # 1 1 0 1 1 1
-    # 2 0 1 0 0 0
-    # 3 0 0 0 0 0
+    #   a b c d e f g
+    # 0 0 0 0 0 0 0 0
+    # 1 1 0 0 1 1 1 0
+    # 2 0 1 1 0 0 0 1
+    # 3 0 0 0 0 0 0 0
     tm[1, 1, :] = 1
+    tm[1, 1, 1] = 0
+    tm[1, 2, 1] = 1
     tm[1, 1, 2] = 0
     tm[1, 2, 2] = 1
+    tm[1, 1, 6] = 0
+    tm[1, 2, 6] = 1
     # S2
-    #   a b c d e
-    # 0 0 0 0 0 0
-    # 1 0 0 0 0 0
-    # 2 1 1 1 1 1
-    # 3 0 0 0 0 0
+    #   a b c d e f g
+    # 0 0 0 0 0 0 0 0
+    # 1 0 0 0 0 0 0 0
+    # 2 1 1 1 1 1 1 1
+    # 3 0 0 0 0 0 0 0
     tm[2, 2, :] = 1
     tm[3, 3, :] = 1
 
@@ -127,9 +133,7 @@ def test_policy(sim, tm=None):
             action = policy.get_action(sim.env)
         obs = sim.step(action)
         if policy_mode == 'lvi':
-            print("start f: " + str(f))
             f = policy.get_fsa_state(sim.env, f, tm)
-            print("next f: " + str(f))
     camera = sim.render()
 
     if render_mode == 'anim':
@@ -140,14 +144,14 @@ def test_policy(sim, tm=None):
 # fix the goal so that it is to put ball a THEN ball b into the basket
 
 if __name__ == '__main__':
-    sim = LineWorldSim()
-    tm = None
-    if policy_mode == 'lvi':
-        tm = make_tm_lineworld()
-    test_policy(sim, tm)
-
-    # sim = BallDropSim()
+    # sim = LineWorldSim()
     # tm = None
     # if policy_mode == 'lvi':
-    #     tm = make_tm_balldrop()
+    #     tm = make_tm_lineworld()
     # test_policy(sim, tm)
+
+    sim = BallDropSim()
+    tm = None
+    if policy_mode == 'lvi':
+        tm = make_tm_balldrop()
+    test_policy(sim, tm)

@@ -426,6 +426,11 @@ class LVIPolicy(VIPolicy):
         # next_f_coord = np.argwhere(next_fs != f)[0]
         # next_f = next_fs[next_f_coord]
 
+        # list of which props are on (1) and off (0)
+        # props = self.P[:, s_idx]
+        # for prop in props:
+        #     if prop
+
         p = np.argmax(self.P[:, s_idx])
         # print("props: {}".format(self.P[:, s_idx]))
 
