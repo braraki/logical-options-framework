@@ -2,6 +2,7 @@ import time
 from simulator.rendering import Viewer
 from simulator.balldrop import BallDropSim
 from simulator.lineworld import LineWorldSim
+from simulator.gridworld import GridWorldSim
 from simulator.policy import *
 from celluloid import Camera
 
@@ -17,36 +18,42 @@ def make_tm_balldrop():
     # drop ball A in basket, THEN drop ball B in basket
 
     # prop order:
-    # ainb, binb, abinb, hba, hbb
+    # ainb, ainb, abinb, hba, hbb, ainbhbb, binbhba
 
     nF = 4
-    nP = 6
+    nP = 8
     tm = np.zeros((nF, nF, nP))
 
     # initial state
-    #   a b c d e
-    # 0 0 1 1 1 1
-    # 1 1 0 0 0 0
-    # 2 0 0 0 0 0
-    # 3 0 0 0 0 0
+    #   a b c d e f g
+    # 0 0 0 1 1 1 0 1
+    # 1 1 0 0 0 0 1 0
+    # 2 0 0 0 0 0 0 0
+    # 3 0 0 0 0 0 0 0
     tm[0, 0, :] = 1
-    tm[0, 0, 1] = 0
-    tm[0, 1, 1] = 1
+    tm[0, 0, 0] = 0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 5] = 0
+    tm[0, 1, 5] = 1
     # S1
-    #   a b c d e
-    # 0 0 0 0 0 0
-    # 1 1 0 1 1 1
-    # 2 0 1 0 0 0
-    # 3 0 0 0 0 0
+    #   a b c d e f g
+    # 0 0 0 0 0 0 0 0
+    # 1 1 0 0 1 1 1 0
+    # 2 0 1 1 0 0 0 1
+    # 3 0 0 0 0 0 0 0
     tm[1, 1, :] = 1
+    tm[1, 1, 1] = 0
+    tm[1, 2, 1] = 1
     tm[1, 1, 2] = 0
     tm[1, 2, 2] = 1
+    tm[1, 1, 6] = 0
+    tm[1, 2, 6] = 1
     # S2
-    #   a b c d e
-    # 0 0 0 0 0 0
-    # 1 0 0 0 0 0
-    # 2 1 1 1 1 1
-    # 3 0 0 0 0 0
+    #   a b c d e f g
+    # 0 0 0 0 0 0 0 0
+    # 1 0 0 0 0 0 0 0
+    # 2 1 1 1 1 1 1 1
+    # 3 0 0 0 0 0 0 0
     tm[2, 2, :] = 1
     tm[3, 3, :] = 1
 
@@ -63,16 +70,16 @@ def make_tm_lineworld():
     tm = np.zeros((nF, nF, nP))
 
     # initial state
-    #   a b c
+    #   a b e
     # 0 0 1 1
     # 1 1 0 0
     # 2 0 0 0
-    # 3 0 0 0``5`
+    # 3 0 0 0
     tm[0, 0, :] = 1
     tm[0, 0, 0] = 0
     tm[0, 1, 0] = 1
     # S1
-    #   a b c
+    #   a b e
     # 0 0 0 0
     # 1 1 0 1
     # 2 0 1 0
@@ -81,7 +88,7 @@ def make_tm_lineworld():
     tm[1, 1, 1] = 0
     tm[1, 2, 1] = 1
     # S2
-    #   a b c
+    #   a b e
     # 0 0 0 0
     # 1 0 0 0
     # 2 0 1 1
@@ -90,14 +97,14 @@ def make_tm_lineworld():
     tm[2, 2, 0] = 0
     tm[2, 3, 0] = 1
     # G
-    #   a b c
+    #   a b e
     # 0 0 0 0
     # 1 0 0 0
     # 2 0 0 0
     # 3 1 1 1
     tm[3, 3, :] = 1
     # T
-    #   a b c
+    #   a b e
     # 0 0 0 0
     # 1 0 0 0
     # 2 0 0 0
@@ -107,14 +114,79 @@ def make_tm_lineworld():
 
     return tm
 
+def make_tm_gridworld():
+    # go to goal A, then B, then A
+
+    # prop order:
+    # goal_a, goal_b
+
+    nF = 5
+    nP = 5
+    tm = np.zeros((nF, nF, nP))
+
+    # initial state
+    #   a b c o e
+    # 0 0 1 0 0 1
+    # 1 1 0 0 0 0
+    # 2 0 0 0 0 0
+    # 3 0 0 1 0 0
+    # 4 0 0 0 1 0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 1] = 1
+    tm[0, 3, 2] = 1
+    tm[0, 4, 3] = 1
+    tm[0, 0, 4] = 1
+    # S1
+    #   a b c o e
+    # 0 0 0 0 0 0
+    # 1 1 0 1 0 1
+    # 2 0 0 0 0 0
+    # 3 0 1 0 0 0
+    # 4 0 0 0 1 0
+    tm[1, 1, 0] = 1
+    tm[1, 3, 1] = 1
+    tm[1, 1, 2] = 1
+    tm[1, 4, 3] = 1
+    tm[1, 1, 4] = 1
+    # S2
+    #   a b c o e
+    # 0 0 0 0 0 0
+    # 1 0 0 0 0 0
+    # 2 1 1 0 0 1
+    # 3 0 0 1 0 0
+    # 4 0 0 0 1 0
+    tm[2, 2, 0] = 1
+    tm[2, 2, 1] = 1
+    tm[2, 2, 2] = 1
+    tm[2, 4, 3] = 1
+    tm[2, 2, 4] = 1
+    # G
+    #   a b c o e
+    # 0 0 0 0 0 0
+    # 1 0 0 0 0 0
+    # 2 0 0 0 0 0
+    # 3 1 1 1 1 1
+    # 4 0 0 0 0 0
+    tm[3, 3, :] = 1
+    # T
+    #   a b c o e
+    # 0 0 0 0 0 0
+    # 1 0 0 0 0 0
+    # 2 0 0 0 0 0
+    # 3 0 0 0 0 0
+    # 4 1 1 1 1 1
+    tm[4, 4, :] = 1
+
+    return tm
+
 def test_options(sim, tm=None):
     sim.reset()
 
     policy = OptionsPolicy()
     policy.make_policy(sim.env, tm)
-    f= 0
+    f = 0
 
-    for i in range(20):
+    for i in range(30):
         sim.render(mode=render_mode)
         option = policy.get_option(sim.env, f)
         action = policy.get_action(sim.env, option)
@@ -134,6 +206,9 @@ if __name__ == '__main__':
     # sim = BallDropSim()
     # tm = make_tm_balldrop()
 
-    sim = LineWorldSim()
-    tm = make_tm_lineworld()
+    # sim = LineWorldSim()
+    # tm = make_tm_lineworld()
+
+    sim = GridWorldSim()
+    tm = make_tm_gridworld()
     test_options(sim, tm)

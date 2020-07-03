@@ -2,6 +2,7 @@ import time, os
 from simulator.rendering import Viewer
 from simulator.balldrop import BallDropSim
 from simulator.lineworld import LineWorldSim
+from simulator.gridworld import GridWorldSim
 import scipy.sparse as sparse
 from pathlib import Path
 import numpy as np
@@ -39,7 +40,8 @@ def save_reward_function(env_name, R):
 
 def make_transitions():
     # sim = BallDropSim()
-    sim = LineWorldSim()
+    # sim = LineWorldSim()
+    sim = GridWorldSim()
     sim.reset()
 
     R = sim.env.make_reward_function()

@@ -44,6 +44,24 @@ class SameLocationProp(Proposition):
 
         return self.value
 
+class OnObstacleProp(Proposition):
+
+    def __init__(self, name, obj_name, obstacle_name):
+        super().__init__(name)
+
+        self.obj = obj_name
+        self.obstacle = obstacle_name
+
+    def eval(self, obj_dict):
+
+
+        obj_state = obj_dict[self.obj].state
+        obstacle_state = obj_dict[self.obstacle].state
+
+        self.value = (obstacle_state[obj_state[0], obj_state[1]] == 1)
+
+        return self.value
+
 class HoldingBallProp(Proposition):
 
     # the holder must have a gripper state

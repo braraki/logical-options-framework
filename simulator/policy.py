@@ -44,18 +44,12 @@ class VIPolicy(PolicyBase):
         V = np.zeros((ss_size,))
         return V
 
-    def make_transition_function(self, env):
-        initial_state = env.get_state()
-        T = env.make_transition_function()
-        self.T = T
-        env.set_state(initial_state)
-
     def make_policy(self, env):
         # NOTE: need to change this so that reward func is
         # calculated for every new environment
-        R = self.load_reward_function(env)
+        R = env.make_reward_function()
 
-        self.make_transition_function(env)
+        self.T = env.make_transition_function()
 
         ss_size = np.prod(env.get_full_state_space())
         V = self.init_value_function(ss_size)
@@ -65,9 +59,12 @@ class VIPolicy(PolicyBase):
 
         Q = np.zeros((ss_size, nA))
         for k in range(self.num_iter):
+            RplusV = R + gamma*V
             for i, t in enumerate(self.T):
-                Q[:, i] = t.dot(R + gamma * V)
+                Q[:, i] = t.dot(RplusV)
             V = np.max(Q, axis=1)
+
+        print(V)
 
         self.Q = Q
     
@@ -101,6 +98,9 @@ class OptionsPolicy(PolicyBase):
         V = np.zeros((nF, ss_size))
         return V
 
+    # this function can be greatly simplified
+    # since I'm assuming that there is only one instance
+    # of every goal, so poss is known virtually automatically
     def make_poss(self, goal_ids):
         # goal_ids: (o x s)
         # each value is the ID of g = o(s)
@@ -132,10 +132,10 @@ class OptionsPolicy(PolicyBase):
         # if the state is a goal, then its goal idx is its own index
 
         # list of indices corresponding to state idxs of props
-        goalIdxList = np.nonzero(self.P[:-1] == 1)
-        goalIdxList = tuple(list(goalIdxList) + [np.ones(nO, dtype=int)])
+        goalIdxList = np.nonzero(self.P[:-2] == 1) # need to change this to only use SUBGOALS
+        goalIdxList = tuple(list(goalIdxList) + [np.ones_like(goalIdxList[0], dtype=int)])
         # array of indices corresponding to state idxs of props
-        goalIdxs = np.argwhere(self.P[:-1] == 1)
+        goalIdxs = np.argwhere(self.P[:-2] == 1) # ONLY SUBGOALS
         # set the goalStates to equal the idxs of the props
         V[goalIdxList] = goalIdxs[:, 1]
 
@@ -172,9 +172,23 @@ class OptionsPolicy(PolicyBase):
         R = np.copy(self.P) - 1
         # R[np.where(R == 0)] = 1
 
+        # R should not include the empty prop
+        # nor any safety props
+        R = R[:-2]
+
         # the main difference is that R should not include
         # the empty prop
-        R = R[:-1]
+        # R = R[:-1]
+
+        # for every subgoal proposition in self.P, take the safety props
+        # and add them as highly negative rewards
+        for i, prop in enumerate(self.P[:-2]): # ONLY SUBGOALS
+            R[i] += -1000*self.P[-2] # ALL SAFETY PROPS
+
+        # for every proposition in self.P, take the other props
+        # and add them as highly negative rewards
+        # for i, prop in enumerate(self.P[:-1]):
+        #     R[i] += -1000*np.sum(np.delete(self.P[:-1], i, axis=0), axis=0)
 
         # the reward function should apparently only be 0
         # with the 'do nothing' action... actually maybe
@@ -193,11 +207,11 @@ class OptionsPolicy(PolicyBase):
     # and FSA state combo has a unique
     # cost that is applied at every low-level state)
     def make_reward_function(self, ss_size, nF, nO):
-        R = np.zeros((nF, ss_size, nO))
+        R = np.zeros((nF, ss_size, nO)) + 1
         # trap has negative reward
-        R[-1] = -10
+        # R[-1] = -1
         # goal has positive
-        R[-2] = 10
+        R[-2] = 0
         return R
 
     def make_prop_map(self, env):
@@ -263,14 +277,14 @@ class OptionsPolicy(PolicyBase):
 
         # number of options is # of non-empty props (-1)
         # but need to add obstacle prop (+1)
-        nO = len(env.props)
+        nO = len(env.props) - 1 # ONLY THE NUMBER OF SUBGOAL PROPS
         ss_size = np.prod(env.get_full_state_space())
 
         nA = len(self.T)
 
         # these are the low-level reward funcs
         # reward for achieving a given option
-        # lowR: o x s (o = p - 1 since empty prop is not included)
+        # lowR: o x s (o = p - 2 since empty prop and safety props not included)
         lowR = self.make_low_level_reward_functions()
         # low-level value funcs:
         # basically a matrix where each row is the value function
@@ -329,7 +343,7 @@ class OptionsPolicy(PolicyBase):
 
         nF = tm.shape[0]
         ss_size = np.prod(env.get_full_state_space())
-        nO = self.P.shape[0] - 1
+        nO = self.P.shape[0] - 2 # need to get rid of empty prop AND SAFETY PROPS
         
         # R: f x s
         R = self.make_reward_function(ss_size, nF, nO)
@@ -364,17 +378,19 @@ class OptionsPolicy(PolicyBase):
         C = np.sum(preC, axis=2)
 
         nA = len(self.T) # number of actions
-        gamma = 0.99
+        # gamma = 0.99 the gamma is baked in to poss
 
         # Q: f x s x o
         Q = np.zeros((nF, ss_size, nO))
         for k in range(self.high_num_iter):
             # (f x s x o) = (o x f x f) times (f x s)
-            # Q = T * (R + gamma*V)
+            # Q = T * (R + gamma*V) -- OLD
+            # Q = R + T * V
 
             for i, o in enumerate(self.poss):
                 # (s x f) = (s x s) times (s x f + s x f)
-                preQ = o.dot(R[..., i].T + gamma * V.T)
+                # preQ =  R[..., i].T + o.dot(np.tile(lowV[i, :, 0, None], [1, nF]) + V.T)
+                preQ = np.multiply(R[..., i].T, np.tile(lowV[i, :, 0, None], [1, nF]) - 1) + o.dot(V.T)
                 # (f x s)
                 Q[..., i] = preQ.T
 
@@ -461,7 +477,7 @@ class LVIPolicy(VIPolicy):
         self.make_prop_map(env)
 
         # T: a x s x s (a list over a)
-        self.make_transition_function(env)
+        self.T = env.make_transition_function()
 
         nF = tm.shape[0]
         ss_size = np.prod(env.get_full_state_space())

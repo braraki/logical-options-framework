@@ -2,6 +2,7 @@ import time, os
 from simulator.rendering import Viewer
 from simulator.balldrop import BallDropSim
 from simulator.lineworld import LineWorldSim
+from simulator.gridworld import GridWorldSim
 import scipy.sparse as sparse
 from pathlib import Path
 import numpy as np
@@ -60,7 +61,20 @@ def make_transitions_lineworld():
 
     return R, T
 
+def make_transitions_gridworld():
+    sim = GridWorldSim()
+    sim.reset()
+
+    R = sim.env.make_reward_function()
+
+    # save_reward_function(sim.env.name, R)
+    
+    T = sim.env.make_transition_function(plot)
+    # save_transitions(sim.env.name, T)
+
+    return R, T
+
 if __name__ == '__main__':
-    R, T = make_transitions_lineworld()
+    R, T = make_transitions_gridworld()
     print(R)
-    print(T[0].toarray())
+    print(T[1].toarray())
