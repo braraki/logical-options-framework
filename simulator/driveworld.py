@@ -17,7 +17,7 @@ from .object import *
 from .proposition import *
 from .environment import *
 
-class GridWorldSim(Sim):
+class DriveWorldSim(Sim):
 
     def __init__(self, dom_size=[8, 8], n_domains=100, n_traj=2):
         self.dom_size = dom_size
@@ -31,8 +31,8 @@ class GridWorldSim(Sim):
 
     def reset(self):
         self.obj_dict.clear()
-        self.env =GridWorldEnv(
-            name='GridWorldEnv',
+        self.env =DriveWorldEnv(
+            name='DriveWorldEnv',
             dom_size=self.dom_size,
             action_dict=self.action_dict
         )
@@ -108,48 +108,29 @@ class GridWorldSim(Sim):
 
     def make_agent(self):
         self.agent.create(
-            x_range=[4, 5],
-            y_range=[4, 5]
+            x_range=[0, self.dom_size[0] - 1],
+            y_range=[0, self.dom_size[1] - 1]
         )
-
-        # self.agent.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
 
     def make_goals(self):
         self.goal_a.create(
-            x_range=[4, 5],
-            y_range=[3, 4]
+            x_range=[0, self.dom_size[0] - 1],
+            y_range=[0, self.dom_size[1] - 1]
         )
-        
-        # self.goal_a.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
 
         self.goal_b.create(
-            x_range=[4, 5],
-            y_range=[1, 2]
+            x_range=[0, self.dom_size[0] - 1],
+            exclude_from_x_range=[self.goal_a.state[0]], # don't place goal b on top of goal a
+            exclude_from_y_range=[self.goal_a.state[1]],
+            y_range=[0, self.dom_size[1] - 1]
         )
-        # self.goal_b.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     exclude_from_x_range=[self.goal_a.state[0]], # don't place goal b on top of goal a
-        #     exclude_from_y_range=[self.goal_a.state[1]],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
 
         self.goal_c.create(
-            x_range=[7, 8],
-            y_range=[7, 8]
+            x_range=[0, self.dom_size[0] - 1],
+            exclude_from_x_range=[self.goal_a.state[0], self.goal_b.state[0]], # don't place goal b on top of goal a
+            exclude_from_y_range=[self.goal_a.state[1], self.goal_b.state[1]],
+            y_range=[0, self.dom_size[1] - 1]
         )
-
-        # self.goal_c.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     exclude_from_x_range=[self.goal_a.state[0], self.goal_b.state[0]], # don't place goal b on top of goal a
-        #     exclude_from_y_range=[self.goal_a.state[1], self.goal_b.state[1]],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
 
     def make_obstacles(self):
         mask = np.array([self.agent.state, self.goal_a.state, self.goal_b.state, self.goal_c.state])
@@ -157,7 +138,7 @@ class GridWorldSim(Sim):
         self.obstacles.create_n_rand_obs(
             mask=mask,
             size_max=1,
-            num_obs=2
+            num_obs=10
             )
 
 
@@ -178,3 +159,9 @@ class GridWorldSim(Sim):
             self.viewer = Viewer(mode=mode)
 
         return self.viewer.render(self.env)
+
+    def render_rrt(self, path, mode='human'):
+        if self.viewer == None:
+            self.viewer = Viewer(mode=mode)
+
+        return self.viewer.render_rrt(self.env, path)

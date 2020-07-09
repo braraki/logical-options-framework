@@ -3,6 +3,7 @@ from simulator.rendering import Viewer
 from simulator.balldrop import BallDropSim
 from simulator.lineworld import LineWorldSim
 from simulator.gridworld import GridWorldSim
+from simulator.driveworld import DriveWorldSim
 from simulator.policy import *
 from celluloid import Camera
 
@@ -140,11 +141,11 @@ def make_tm_gridworld():
     #   a b c o e
     # 0 0 0 0 0 0
     # 1 1 0 1 0 1
-    # 2 0 0 0 0 0
-    # 3 0 1 0 0 0
+    # 2 0 1 0 0 0
+    # 3 0 0 0 0 0
     # 4 0 0 0 1 0
     tm[1, 1, 0] = 1
-    tm[1, 3, 1] = 1
+    tm[1, 2, 1] = 1
     tm[1, 1, 2] = 1
     tm[1, 4, 3] = 1
     tm[1, 1, 4] = 1
@@ -152,10 +153,10 @@ def make_tm_gridworld():
     #   a b c o e
     # 0 0 0 0 0 0
     # 1 0 0 0 0 0
-    # 2 1 1 0 0 1
-    # 3 0 0 1 0 0
+    # 2 0 1 0 0 1
+    # 3 1 0 1 0 0
     # 4 0 0 0 1 0
-    tm[2, 2, 0] = 1
+    tm[2, 3, 0] = 1
     tm[2, 2, 1] = 1
     tm[2, 2, 2] = 1
     tm[2, 4, 3] = 1
@@ -209,6 +210,6 @@ if __name__ == '__main__':
     # sim = LineWorldSim()
     # tm = make_tm_lineworld()
 
-    sim = GridWorldSim()
+    sim = DriveWorldSim()
     tm = make_tm_gridworld()
     test_options(sim, tm)

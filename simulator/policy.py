@@ -8,6 +8,17 @@ from scipy.sparse import dok_matrix
 from scipy.sparse import csr_matrix
 
 import random
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
+                "/RRT/")
+
+try:
+    from rrt import RRT
+    from rrt_with_pathsmoothing import path_smoothing
+except ImportError:
+    raise
 
 class PolicyBase(object):
 
@@ -402,6 +413,60 @@ class OptionsPolicy(PolicyBase):
 
 
         self.Q = Q
+
+class RRTOptionsPolicy(OptionsPolicy):
+
+    def __init__(self):
+        super().__init__()
+
+    def make_rrt_policy(self, env):
+        reward = {}
+        ss_size = np.prod(env.get_full_state_space())
+        nO = len(self.poss)
+        paths = []
+        all_states = set([env.idx_to_state(s) for s in range(ss_size)])
+        for o in range(nO):
+            paths.append([])
+            # subQ: o x s x a x 2
+            # option: s x a
+            option = self.subQ[o, ..., 0]
+            for s in range(ss_size):
+                ns = s
+                start = env.idx_to_state(ns)
+                discrete_path = set([env.idx_to_state(ns)])
+                for i in range(10): # need to fix this arbitrary number
+                    action = np.argmax(option[ns])
+                    ns = np.argmax(self.T[action][ns])
+                    state = env.idx_to_state(ns)
+                    discrete_path.add(state)
+                goal = env.idx_to_state(ns)
+                obstacles = all_states.difference(discrete_path)
+                obstacles = [(*ob, 1) for ob in obstacles]
+                # idk why but the RRT's path is backwards
+                # so i've started start and goal
+                rrt = RRT(start=goal,
+                        goal=start,
+                        rand_area=[0, 8], # NEED TO VARIABILIZE THIS
+                        obstacle_list=list(obstacles),
+                        )
+                smoothed_path = rrt.planning(animation=False)
+                # if path is not None:
+                #     maxIter = 1000
+                #     smoothed_path = path_smoothing(path, maxIter, obstacles)
+                # else:
+                #     smoothed_path = None
+                print(o, s, ns, smoothed_path)
+                paths[o].append(smoothed_path)
+                # print("start: {}, goal: {}, path: {}".format(start, goal, path))
+
+        # for o in options:
+        #   for start in all_nonobstacle_states:
+        #       get coordinates of path from lowQ starting from Q
+        #       make all non-path coordiantes obstacles 
+        #       paths[o, start] = rrt(obstacles)
+        #       reward[o, start] = (cost of prop)*(distance traveled in that prop square)
+        
+        return paths
 
 class LVIPolicy(VIPolicy):
 

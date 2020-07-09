@@ -100,26 +100,27 @@ class GridAgentObj(AgentObj):
         if action == 0: # do nothing
             pass
         # note: I'm allowing the agent to wrap around the environment
+        # note: I've decided to not allow that
         elif action == 1: # move left
             if self.state[0] > 0:
                 self.state[0] = self.state[0] - 1
             else:
-                self.state[0] = env.dom_size[0] - 1
+                self.state[0] = self.state[0] # env.dom_size[0] - 1
         elif action == 2: # move right
             if self.state[0] < env.dom_size[0] - 1:
                 self.state[0] = self.state[0] + 1
             else:
-                self.state[0] = 0
+                self.state[0] = self.state[0] # 0
         elif action == 3: # up
             if self.state[1] > 0:
                 self.state[1] = self.state[1] - 1
             else:
-                self.state[1] = env.dom_size[0] - 1
+                self.state[1] = self.state[1] # env.dom_size[0] - 1
         elif action == 4: # down
             if self.state[1] < env.dom_size[1] - 1:
                 self.state[1] = self.state[1] + 1
             else:
-                self.state[1] = 0
+                self.state[1] = self.state[1] # 0
         else:
             raise ValueError('action {} is not a valid action'.format(action))
 
