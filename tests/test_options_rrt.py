@@ -4,6 +4,8 @@ from simulator.driveworld import DriveWorldSim
 from simulator.policy import *
 from celluloid import Camera
 
+from .options import *
+
 # human: show plots
 # anim: don't show plots but save a gif
 # note: the first call to 'render' sets the render mode
@@ -13,47 +15,48 @@ render_mode = 'anim'
 policy_mode = 'options'
 
 def make_tm_driveworld():
+    
     # go to goal A, then B, then A
 
     # prop order:
     # goal_a, goal_b
 
     nF = 5
-    nP = 5
+    nP = 6
     tm = np.zeros((nF, nF, nP))
 
     # initial state
     #   a b c o e
-    # 0 0 0 1 0 1
-    # 1 1 1 0 0 0
+    # 0 0 1 1 0 1
+    # 1 1 0 0 0 0
     # 2 0 0 0 0 0
     # 3 0 0 0 0 0
     # 4 0 0 0 1 0
     tm[0, 1, 0] = 1
-    tm[0, 1, 1] = 1
+    tm[0, 0, 1] = 1
     tm[0, 0, 2] = 1
     tm[0, 4, 3] = 1
     tm[0, 0, 4] = 1
     # S1
     #   a b c o e
     # 0 0 0 0 0 0
-    # 1 1 1 0 0 1
-    # 2 0 0 1 0 0
+    # 1 1 0 1 0 1
+    # 2 0 1 0 0 0
     # 3 0 0 0 0 0
     # 4 0 0 0 1 0
     tm[1, 1, 0] = 1
-    tm[1, 1, 1] = 1
-    tm[1, 3, 2] = 1
+    tm[1, 2, 1] = 1
+    tm[1, 1, 2] = 1
     tm[1, 4, 3] = 1
     tm[1, 1, 4] = 1
     # S2
     #   a b c o e
     # 0 0 0 0 0 0
     # 1 0 0 0 0 0
-    # 2 0 1 0 0 1
-    # 3 1 0 1 0 0
+    # 2 1 1 0 0 1
+    # 3 0 0 1 0 0
     # 4 0 0 0 1 0
-    tm[2, 3, 0] = 1
+    tm[2, 2, 0] = 1
     tm[2, 2, 1] = 1
     tm[2, 3, 2] = 1
     tm[2, 4, 3] = 1

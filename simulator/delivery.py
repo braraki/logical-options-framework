@@ -12,27 +12,21 @@ import matplotlib.patches as mpatches
 from celluloid import Camera
 
 from .simulator import Sim
+from .gridworld import GridWorldSim
 from .rendering import Viewer
 from .object import *
 from .proposition import *
 from .environment import *
 
-class GridWorldSim(Sim):
+class DeliverySim(GridWorldSim):
 
     def __init__(self, dom_size=[15, 15], n_domains=100, n_traj=2):
-        self.dom_size = dom_size
-        self.viewer = None
-        self.camera = None
-        self.env = None # Env is defined in reset()
-        self.obj_dict = OrderedDict()
-        self.action_dict = {
-            'nothing': 0, 'left': 1, 'right': 2, 'up': 3, 'down': 4
-        }
+        super().__init__(dom_size, n_domains, n_traj)
 
     def reset(self):
         self.obj_dict.clear()
         self.env =GridWorldEnv(
-            name='GridWorldEnv',
+            name='DeliveryEnv',
             dom_size=self.dom_size,
             action_dict=self.action_dict
         )
@@ -44,16 +38,14 @@ class GridWorldSim(Sim):
         self.prop_dict = self.add_props()
         self.env.add_props(self.prop_dict)
 
-    # this allows you to access propositions as attributes of this class
-    # so for example instead of doing self.prop_dict['ball_a'], you can
-    # just do self.ball_a
-    def __getattr__(self, name):
-        return self.obj_dict[name]
-
     def init_objects(self):
+        # making obstacles has to come first so
+        # the agent and goals can be placed around
+        # the obstacles    
+        self.make_obstacles()
         self.make_agent()
         self.make_goals()
-        self.make_obstacles()
+        print('f')
 
     def add_props(self):
         prop_dict = OrderedDict()
@@ -72,11 +64,41 @@ class GridWorldSim(Sim):
             obj_name2='goal_b'
             )
 
-        # "Agenet on Goal C"
-        prop_dict['onc'] = SameLocationProp(
-            name='onc',
+        # "Agent on Goal H"
+        prop_dict['onh'] = SameLocationProp(
+            name='onh',
             obj_name1='agent',
-            obj_name2='goal_c'
+            obj_name2='goal_h'
+        )
+
+        # "Delivery B Canceled"
+        prop_dict['canceled'] = RandomProp(
+            name='canceled',
+            prob=0.05
+        )
+
+        # "Goal A and Delivery B Canceled"
+        prop_dict['a_and_canceled'] = CombinedProp(
+            name='a_and_canceled',
+            prop1=prop_dict['ona'],
+            prop2=prop_dict['canceled'],
+            prop_idxs=[0,3]
+        )
+
+        # "Goal B and Delivery B Canceled"
+        prop_dict['b_and_canceled'] = CombinedProp(
+            name='b_and_canceled',
+            prop1=prop_dict['onb'],
+            prop2=prop_dict['canceled'],
+            prop_idxs=[1,3]
+        )
+
+        # "Goal H and Delivery B Canceled"
+        prop_dict['h_and_canceled'] = CombinedProp(
+            name='h_and_canceled',
+            prop1=prop_dict['onh'],
+            prop2=prop_dict['canceled'],
+            prop_idxs=[2,3]
         )
 
         # "Agent on Obstacle"
@@ -99,67 +121,47 @@ class GridWorldSim(Sim):
             state_space=self.dom_size)
         obj_dict['goal_b'] = GridGoalObj(name='b', color=[0, 1, 0], 
             state_space=self.dom_size)
-        obj_dict['goal_c'] = GridGoalObj(name='c', color=[0, 0, 1], 
+        obj_dict['goal_h'] = GridGoalObj(name='h', color=[0, 0, 1], 
             state_space=self.dom_size)
         obj_dict['obstacles'] = ObstacleObj(name='obstacles', color=[0, 0, 0],
             dom_size=self.dom_size)
-
         return obj_dict
 
     def make_agent(self):
-        self.agent.create(
-            x_range=[1, 4],
-            y_range=[3, 4]
+        # this will create the agent on either the
+        # left or right side of the gridworld
+        # at a random height
+        mask = np.copy(self.obstacles.state)
+        self.agent.create_with_mask(
+            x_range=[0, self.dom_size[1]-1],
+            y_range=[i for i in range(self.dom_size[1])],
+            mask=mask
         )
-
-        # self.agent.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
 
     def make_goals(self):
-        self.goal_a.create(
-            x_range=[5, 6],
-            y_range=[3, 4]
+        mask = np.copy(self.obstacles.state)
+        mask[self.agent.state[0], self.agent.state[1]] = 1
+        self.goal_a.create_with_mask(
+            x_range=[i for i in range(self.dom_size[0])],
+            y_range=[i for i in range(self.dom_size[1])],
+            mask=mask
         )
         
-        # self.goal_a.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
-
-        self.goal_b.create(
-            x_range=[3, 4],
-            y_range=[3, 4]
-        )
-        # self.goal_b.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     exclude_from_x_range=[self.goal_a.state[0]], # don't place goal b on top of goal a
-        #     exclude_from_y_range=[self.goal_a.state[1]],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
-
-        self.goal_c.create(
-            x_range=[7, 8],
-            y_range=[7, 8]
+        mask[self.goal_a.state[0], self.goal_a.state[1]] = 1
+        self.goal_b.create_with_mask(
+            x_range=[i for i in range(self.dom_size[0])],
+            y_range=[i for i in range(self.dom_size[1])],
+            mask=mask
         )
 
-        # self.goal_c.create(
-        #     x_range=[0, self.dom_size[0] - 1],
-        #     exclude_from_x_range=[self.goal_a.state[0], self.goal_b.state[0]], # don't place goal b on top of goal a
-        #     exclude_from_y_range=[self.goal_a.state[1], self.goal_b.state[1]],
-        #     y_range=[0, self.dom_size[1] - 1]
-        # )
+        # home will be placed at the same location
+        # as the agent
+        self.goal_h.create_with_mask(
+            x_range=[self.agent.state[0]],
+            y_range=[self.agent.state[1]]
+        )
 
     def make_obstacles(self):
-        # mask = np.array([self.agent.state, self.goal_a.state, self.goal_b.state, self.goal_c.state])
-
-        # self.obstacles.create_n_rand_obs(
-        #     mask=mask,
-        #     size_max=1,
-        #     num_obs=2
-        #     )
-
         self.obstacles.add_obstacle_grid(obstacle_size=3)
 
     # save proposition state of the environment

@@ -1,3 +1,5 @@
+import numpy as np
+
 class Proposition(object):
 
     def __init__(self, name):
@@ -9,6 +11,22 @@ class Proposition(object):
     # information from previous timesteps
     def eval(self, obj_dict):
         raise NotImplementedError
+
+# this prop is kind of an exception to how I've defined props
+# because it's value does not depend on the state but it rather
+# random at every time step. However, this could be accounted for by
+# adding an extra dimension to the state space and attaching this
+# prop's value to it
+class RandomProp(Proposition):
+
+    def __init__(self, name, prob):
+        super().__init__(name)
+        self.prob = prob
+
+    def eval(self, obj_dict):
+        self.value = np.random.uniform() < self.prob
+
+        return self.value
 
 # this is like an AND statement over two props
 # if this is true, then when you return the overall prop state,
@@ -44,6 +62,27 @@ class SameLocationProp(Proposition):
 
         return self.value
 
+# when the car decides to trigger a maneuver
+# true if state[2] == the number associated w/ the maneuver
+class ManeuverProp(Proposition):
+
+    def __init__(self, name, obj_name, option_number):
+        super().__init__(name)
+
+        self.obj = obj_name # typically is the agent
+        self.option_number = option_number
+
+    def eval(self, obj_dict):
+        obj_state = obj_dict[self.obj].state
+
+        # THIS IS A BIG HACK AND I NEED TO FIX IT!
+        self.value = (obj_state[2] == self.option_number) and (obj_state[:2] == [4, 0])
+
+        if self.value is not True and self.value is not False:
+            print("f")
+
+        return self.value
+
 class OnObstacleProp(Proposition):
 
     def __init__(self, name, obj_name, obstacle_name):
@@ -58,7 +97,10 @@ class OnObstacleProp(Proposition):
         obj_state = obj_dict[self.obj].state
         obstacle_state = obj_dict[self.obstacle].state
 
-        self.value = (obstacle_state[obj_state[0], obj_state[1]] == 1)
+        self.value = (obstacle_state[obj_state[0], obj_state[1]].item() == 1)
+
+        if self.value is not False and self.value is not True:
+            print('f')
 
         return self.value
 

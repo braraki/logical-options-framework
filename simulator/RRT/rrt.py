@@ -33,7 +33,7 @@ class RRT:
             self.parent = None
 
     def __init__(self, start, goal, obstacle_list, rand_area,
-                 expand_dis=3.0, path_resolution=0.5, goal_sample_rate=5,
+                 expand_dis=2.0, path_resolution=0.2, goal_sample_rate=5,
                  max_iter=500, path=None):
         """
         Setting Parameter
@@ -70,14 +70,35 @@ class RRT:
                 # only in that square for ten times. then move on
                 # to the next square
                 # for i in range(10):
-                #     self.min_rand = 
-                node = self.Node(point[0], point[1])
-                if i == 0:
-                    new_node = self.steer(self.start, node)
-                else:
-                    new_node = self.steer(self.node_list[i], node)
+                #     self.min_rand =
+                iter_per_point = int(self.max_iter/len(self.path))
+                left = point[0] - 0.5
+                right = point[0] + 0.5
+                up = point[1] + 0.5
+                down = point[1] - 0.5
+                near_goal = (i == len(self.path)-1)
+                for j in range(iter_per_point):
+                    rnd_node = self.get_random_node_in_tile(left, right, up, down, near_goal)
 
-                self.node_list.append(new_node)
+                    nearest_ind = self.get_nearest_node_index(self.node_list, rnd_node)
+                    nearest_node = self.node_list[nearest_ind]
+
+                    new_node = self.steer(nearest_node, rnd_node, self.expand_dis)
+
+                    if self.check_collision_square(new_node, self.obstacle_list):
+                        self.node_list.append(new_node)
+
+                    node_num = i*len(self.path) + j
+                    if animation and node_num % 5 == 0:
+                        self.draw_graph(rnd_node)
+
+                    if self.calc_dist_to_goal(self.node_list[-1].x, self.node_list[-1].y) <= self.expand_dis:
+                        final_node = self.steer(self.node_list[-1], self.end, self.expand_dis)
+                        if self.check_collision_square(final_node, self.obstacle_list):
+                            return self.generate_final_course(len(self.node_list) - 1)
+
+                    if animation and node_num % 5:
+                        self.draw_graph(rnd_node)
 
 
         for i in range(self.max_iter):
@@ -146,6 +167,15 @@ class RRT:
         dy = y - self.end.y
         return math.hypot(dx, dy)
 
+    def get_random_node_in_tile(self, left, right, up, down, near_goal=False):
+        # if random.randint(0, 100) > self.goal_sample_rate:
+        if not near_goal or (near_goal and random.randint(0, 100) > 50):
+            rnd = self.Node(random.uniform(left, right),
+                            random.uniform(down, up))
+        else:  # goal point sampling
+            rnd = self.Node(self.end.x, self.end.y)
+        return rnd
+    
     def get_random_node(self):
         if random.randint(0, 100) > self.goal_sample_rate:
             rnd = self.Node(random.uniform(self.min_rand, self.max_rand),

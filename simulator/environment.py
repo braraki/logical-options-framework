@@ -30,6 +30,8 @@ class Env(object):
         self.prop_dict = None
         self.prop_idx_dict = {} # may not be necessary
 
+        self.P = None
+
         self.viewer = None
 
         self.action_dict = action_dict
@@ -104,7 +106,11 @@ class Env(object):
 
             prop_state = []
             for prop in self.props:
-                prop_state.append(int(prop.value))
+                try:
+                    prop_state.append(int(prop.value))
+                except:
+                    print("JCKJDLKFJ:DLSK")
+                    print(prop.value)
                 if type(prop).__name__ == 'CombinedProp' and prop.value:
                     prop_state[prop.prop_idxs[0]] = 0
                     prop_state[prop.prop_idxs[1]] = 0
@@ -113,13 +119,40 @@ class Env(object):
                 prop_state.append(1)
             else:
                 prop_state.append(0)
+
+            # this is hack for the driving env; if the 'goal c' prop and left lane prop
+            # are both true, make it so that only the goal c prop is true
+            if prop_state[2] == 1 and type(self).__name__ == 'DriveWorldEnv':
+                prop_state[3] = 0
+
             P[:, s_idx] = prop_state
 
             idx += 1
             if idx % 10000 == 0:
                 print(idx)
 
+        self.P = P
+
         return P
+
+    def get_proposition(self):
+        prop_state = []
+        for prop in self.props:
+            try:
+                prop_state.append(int(prop.value))
+            except:
+                print("JCKJDLKFJ:DLSK")
+                print(prop.value)
+            if type(prop).__name__ == 'CombinedProp' and prop.value:
+                prop_state[prop.prop_idxs[0]] = 0
+                prop_state[prop.prop_idxs[1]] = 0
+                
+        if 1 not in prop_state:
+            prop_state.append(1)
+        else:
+            prop_state.append(0)
+
+        return np.argmax(prop_state)
 
     # T[s, s']
     def make_transition_function(self, plot=False):
@@ -479,7 +512,8 @@ class DriveWorldEnv(Env):
     # given state of form [3, 2, 4, 8, 1, 0, 0, 0]
     # set object and prop states to match
     def set_state(self, state):
-        self.obj_dict['agent'].set_state(state[0:2])
+        self.obj_dict['agent'].set_state(state)
+            
         # self.obj_dict['goal_a'].set_state(state[1])
         # self.obj_dict['goal_b'].set_state(state[2])
         self.update_obj_state()
@@ -488,5 +522,5 @@ class DriveWorldEnv(Env):
 
     # ie [8]
     def get_full_state_space(self):
-        state_space = self.dom_size
+        state_space = self.dom_size + [4] # THIS IS FOR THE 4 MANEUVERS. I need to parameterize this
         return state_space

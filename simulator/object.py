@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.random import randint
 from collections import OrderedDict
+import random
 
 # describe the Agent as an object
 class AgentObj(object):
@@ -25,6 +26,20 @@ class AgentObj(object):
 
         x = random_num(x_range, exclude_from_x_range)
         y = random_num(y_range, exclude_from_y_range)
+        h = 0
+
+        state = [x, y, h]
+        self.state = state
+        return state
+
+    def create_with_mask(self, x_range, y_range, mask=None):
+        x = random.choice(x_range)
+        y = random.choice(y_range)
+        if mask is not None:
+            while mask[x, y] == 1:
+                x = random.choice(x_range)
+                y = random.choice(y_range)
+
         h = 0
 
         state = [x, y, h]
@@ -124,6 +139,47 @@ class GridAgentObj(AgentObj):
         else:
             raise ValueError('action {} is not a valid action'.format(action))
 
+class CarAgentObj(AgentObj):
+    def __init__(self, name, color, state_space):
+        super().__init__(name, color, state_space)
+
+    def set_state(self, x):
+        if len(x) == 2:
+            self.state[:2] = x
+        else:
+            self.state[:3] = x
+
+    def get_state(self):
+        return self.state[:3]
+
+    def apply_action(self, env, action):
+        # state[2] is the 'overtake/straight/change' state
+        # should be 0 by default
+        self.state[2] = 0
+        if action == 0: # do nothing
+            pass
+        elif action == 1: # up
+            if self.state[1] < env.dom_size[1] - 1:
+                self.state[1] = self.state[1] + 1
+        elif action == 2: # move left [up and left]
+            if self.state[0] > 0 and self.state[1] < env.dom_size[1] - 1:
+                self.state[0] = self.state[0] - 1
+                self.state[1] = self.state[1] + 1
+        elif action == 3: # move right [up and right]
+            if self.state[0] < env.dom_size[0] - 1 and self.state[1] < env.dom_size[1] - 1:
+                self.state[0] = self.state[0] + 1
+                self.state[1] = self.state[1] + 1
+        elif action == 4: # overtake
+            self.state[2] = 1
+        elif action == 5: # straight
+            self.state[2] = 2
+        elif action == 6: # change
+            self.state[2] = 3
+        
+        
+        else:
+            raise ValueError('action {} is not a valid action'.format(action))
+
 # object with a location
 class LocObj(object):
 
@@ -160,6 +216,20 @@ class LocObj(object):
 
         x = random_num(x_range, exclude_from_x_range)
         y = random_num(y_range, exclude_from_y_range)
+        h = 0
+
+        state = [x, y, h]
+        self.state = state
+        return state
+
+    def create_with_mask(self, x_range, y_range, mask=None):
+        x = random.choice(x_range)
+        y = random.choice(y_range)
+        if mask is not None:
+            while mask[x, y] == 1:
+                x = random.choice(x_range)
+                y = random.choice(y_range)
+
         h = 0
 
         state = [x, y, h]
@@ -265,7 +335,7 @@ class StaticObj(object):
         self.name = name
         self.color = np.array(color) # [r, g, b] 0-255
         self.dom_size = dom_size
-        self.state = np.zeros(dom_size)
+        self.state = np.zeros(self.dom_size)
 
     def __repr__(self):
         return self.name + ", " + type(self).__name__ + ", StaticObj, " + hex(id(self))
@@ -280,6 +350,15 @@ class StaticObj(object):
     def apply_dynamics(self, env):
         return
 
+class LeftLaneObj(StaticObj):
+
+    def __init__(self, name, color, dom_size):
+        super().__init__(name, color, dom_size)
+
+    def add_leftlane(self):
+        leftside = int(self.dom_size[0]/2)
+        self.state[:leftside] = 1
+
 class ObstacleObj(StaticObj):
 
     def __init__(self, name, color, dom_size, mask=None, size_max=None):
@@ -287,6 +366,20 @@ class ObstacleObj(StaticObj):
 
         self.mask = None
         self.size_max = None
+
+    def add_right_lane_car(self):
+        halfway = int(self.dom_size[0]/2)
+
+        onethird = int(self.dom_size[1]/3) - 1
+
+        self.state[halfway:, onethird:onethird+3] = 1
+
+    def add_left_lane_car(self):
+        halfway = int(self.dom_size[0]/2)
+
+        onethird = int(self.dom_size[1]/3) - 1
+
+        self.state[:halfway, :3] = 1
 
     def add_random_obstacle(self, x_range, y_range, exclude_from_x_range=[], exclude_from_y_range=[]):
         def random_num(i_range, exclude_from_range=[]):
@@ -303,6 +396,13 @@ class ObstacleObj(StaticObj):
         y = random_num(y_range, exclude_from_y_range)
 
         self.state[x, y] = 1
+
+    def add_obstacle_grid(self, obstacle_size=1, offset_from_edge=0):
+
+        for i in range(obstacle_size):
+            for j in range(obstacle_size):
+                self.state[(i+offset_from_edge)::(obstacle_size+1),
+                           (j+offset_from_edge)::(obstacle_size+1)] = 1
 
     def check_mask(self, dom=None):
         # Ensure goal is in free space

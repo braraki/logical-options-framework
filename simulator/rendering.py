@@ -23,7 +23,7 @@ class Viewer(object):
 
         # shrink the plot so the legend will fit into the window
         box = self.ax.get_position()
-        self.ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        self.ax.set_position([box.x0, box.y0, box.width * 0.5, box.height])
 
         self.camera = None
         if mode=='anim':
@@ -111,7 +111,7 @@ class Viewer(object):
         implot = plt.imshow(image)
 
         if path is not None:
-            plt.plot([x for (x, y) in path], [7-y for (x, y) in path], '-r')
+            plt.plot([x for (x, y) in path], [env.dom_size[1] - y - 1 for (x, y) in path], '-r')
 
         ##### LEGEND STUFF #####
 

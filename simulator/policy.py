@@ -13,10 +13,13 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
                 "/RRT/")
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
+                "/RRTStar/")
 
 try:
     from rrt import RRT
-    from rrt_with_pathsmoothing import path_smoothing
+    # from rrt_with_pathsmoothing import path_smoothing
+    from rrt_star import RRTStar
 except ImportError:
     raise
 
@@ -143,10 +146,10 @@ class OptionsPolicy(PolicyBase):
         # if the state is a goal, then its goal idx is its own index
 
         # list of indices corresponding to state idxs of props
-        goalIdxList = np.nonzero(self.P[:-2] == 1) # need to change this to only use SUBGOALS
+        goalIdxList = np.nonzero(self.P[:-3] == 1) # need to change this to only use SUBGOALS
         goalIdxList = tuple(list(goalIdxList) + [np.ones_like(goalIdxList[0], dtype=int)])
         # array of indices corresponding to state idxs of props
-        goalIdxs = np.argwhere(self.P[:-2] == 1) # ONLY SUBGOALS
+        goalIdxs = np.argwhere(self.P[:-3] == 1) # ONLY SUBGOALS
         # set the goalStates to equal the idxs of the props
         V[goalIdxList] = goalIdxs[:, 1]
 
@@ -185,7 +188,7 @@ class OptionsPolicy(PolicyBase):
 
         # R should not include the empty prop
         # nor any safety props
-        R = R[:-2]
+        R = R[:-3]
 
         # the main difference is that R should not include
         # the empty prop
@@ -193,8 +196,13 @@ class OptionsPolicy(PolicyBase):
 
         # for every subgoal proposition in self.P, take the safety props
         # and add them as highly negative rewards
-        for i, prop in enumerate(self.P[:-2]): # ONLY SUBGOALS
+        for i, prop in enumerate(self.P[:-3]): # ONLY SUBGOALS
             R[i] += -1000*self.P[-2] # ALL SAFETY PROPS
+
+        R[0] += -1*self.P[-3] # penalize left lane when the subgoal is go
+        R[1] += -1000*self.P[-3] # penalize left lane equally to obstacle when subgoal is gs
+        R[2] += -1
+        R[2] += 1*self.P[-3] # basically, penalize empty spots and not the left lane when subgoal is gc
 
         # for every proposition in self.P, take the other props
         # and add them as highly negative rewards
@@ -217,10 +225,17 @@ class OptionsPolicy(PolicyBase):
     # NEEDS TO BE SIMPLIFIED (for example, each  option
     # and FSA state combo has a unique
     # cost that is applied at every low-level state)
+    # note that these values are multiplicative values
+    # (take this value and multiply it with the low-level cost)
     def make_reward_function(self, ss_size, nF, nO):
         R = np.zeros((nF, ss_size, nO)) + 1
         # trap has negative reward
-        # R[-1] = -1
+        R[-1] = 10
+        # penalize (?) left lane states
+        R[1] += 1
+        R[6] += 1
+        R[2] += 1
+        R[7] += 1
         # goal has positive
         R[-2] = 0
         return R
@@ -288,7 +303,7 @@ class OptionsPolicy(PolicyBase):
 
         # number of options is # of non-empty props (-1)
         # but need to add obstacle prop (+1)
-        nO = len(env.props) - 1 # ONLY THE NUMBER OF SUBGOAL PROPS
+        nO = len(env.props) - 2 # ONLY THE NUMBER OF SUBGOAL PROPS
         ss_size = np.prod(env.get_full_state_space())
 
         nA = len(self.T)
@@ -354,7 +369,7 @@ class OptionsPolicy(PolicyBase):
 
         nF = tm.shape[0]
         ss_size = np.prod(env.get_full_state_space())
-        nO = self.P.shape[0] - 2 # need to get rid of empty prop AND SAFETY PROPS
+        nO = self.P.shape[0] - 3 # need to get rid of empty prop AND SAFETY PROPS
         
         # R: f x s
         R = self.make_reward_function(ss_size, nF, nO)
@@ -433,30 +448,40 @@ class RRTOptionsPolicy(OptionsPolicy):
             for s in range(ss_size):
                 ns = s
                 start = env.idx_to_state(ns)
-                discrete_path = set([env.idx_to_state(ns)])
-                for i in range(10): # need to fix this arbitrary number
+                discrete_path = [env.idx_to_state(ns)]
+                path_set = set([env.idx_to_state(ns)])
+                for i in range(15): # need to fix this arbitrary number
                     action = np.argmax(option[ns])
                     ns = np.argmax(self.T[action][ns])
                     state = env.idx_to_state(ns)
-                    discrete_path.add(state)
+                    if state not in discrete_path:
+                        discrete_path.append(state)
+                    path_set.add(state)
                 goal = env.idx_to_state(ns)
-                obstacles = all_states.difference(discrete_path)
+                obstacles = all_states.difference(path_set)
                 obstacles = [(*ob, 1) for ob in obstacles]
                 # idk why but the RRT's path is backwards
                 # so i've started start and goal
-                rrt = RRT(start=goal,
-                        goal=start,
-                        rand_area=[0, 8], # NEED TO VARIABILIZE THIS
-                        obstacle_list=list(obstacles),
-                        )
-                smoothed_path = rrt.planning(animation=False)
+                if start == goal:
+                    path = [start, goal]
+                else:
+                    rrt = RRTStar(start=start,
+                            goal=goal,
+                            rand_area=[0, env.dom_size[0]], # NEED TO VARIABILIZE THIS
+                            obstacle_list=list(obstacles),
+                            max_iter=100,
+                            path=discrete_path
+                            )
+                    path = rrt.planning(animation=False, search_until_max_iter=False)
+                if path is None:
+                    print('f')
                 # if path is not None:
                 #     maxIter = 1000
                 #     smoothed_path = path_smoothing(path, maxIter, obstacles)
                 # else:
                 #     smoothed_path = None
-                print(o, s, ns, smoothed_path)
-                paths[o].append(smoothed_path)
+                print(o, s, ns, path)
+                paths[o].append(path)
                 # print("start: {}, goal: {}, path: {}".format(start, goal, path))
 
         # for o in options:
