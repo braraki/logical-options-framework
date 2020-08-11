@@ -17,14 +17,13 @@ class Proposition(object):
 # random at every time step. However, this could be accounted for by
 # adding an extra dimension to the state space and attaching this
 # prop's value to it
-class RandomProp(Proposition):
+class ExternalProp(Proposition):
 
-    def __init__(self, name, prob):
+    def __init__(self, name, value):
         super().__init__(name)
-        self.prob = prob
+        self.value = value
 
     def eval(self, obj_dict):
-        self.value = np.random.uniform() < self.prob
 
         return self.value
 
@@ -94,10 +93,17 @@ class OnObstacleProp(Proposition):
     def eval(self, obj_dict):
 
 
-        obj_state = obj_dict[self.obj].state
+        obj_state = obj_dict[self.obj].get_state()
         obstacle_state = obj_dict[self.obstacle].state
 
-        self.value = (obstacle_state[obj_state[0], obj_state[1]].item() == 1)
+        if type(obj_dict[self.obj]).mro()[1].__name__ == 'CarAgentObj':
+            real_state = obj_dict[self.obj].get_rrt_state()
+            if obstacle_state[obj_state[0], obj_state[1]].item() == 1:
+                self.value = (real_state[0] == float(obj_state[0]) and real_state[1] == float(obj_state[1]))
+            else:
+                self.value = False
+        else:
+            self.value = (obstacle_state[obj_state[0], obj_state[1]].item() == 1)
 
         if self.value is not False and self.value is not True:
             print('f')

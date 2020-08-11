@@ -147,15 +147,28 @@ class CarAgentObj(AgentObj):
         if len(x) == 2:
             self.state[:2] = x
         else:
-            self.state[:3] = x
+            self.state[:2] = x
+            # self.state[:3] = x
 
+    def get_rrt_state(self):
+        return self.state[:2]
+        # return self.state[:3]
+
+    # when get_state is queried, return the discrete state, not the continuous state
     def get_state(self):
-        return self.state[:3]
+        discrete_state = list(np.around([self.state[0], self.state[1]]).astype(int))
+        return discrete_state
 
+    # the action can either be a number, corresponding to
+    # up, left, right...
+    # OR it can be a state, corresponding to the car's new state
     def apply_action(self, env, action):
         # state[2] is the 'overtake/straight/change' state
         # should be 0 by default
-        self.state[2] = 0
+        # self.state[2] = 0
+        # for now, state[2] will be used to indicate the distance the
+        # agent has traveled along its path
+
         if action == 0: # do nothing
             pass
         elif action == 1: # up
@@ -169,16 +182,18 @@ class CarAgentObj(AgentObj):
             if self.state[0] < env.dom_size[0] - 1 and self.state[1] < env.dom_size[1] - 1:
                 self.state[0] = self.state[0] + 1
                 self.state[1] = self.state[1] + 1
-        elif action == 4: # overtake
-            self.state[2] = 1
-        elif action == 5: # straight
-            self.state[2] = 2
-        elif action == 6: # change
-            self.state[2] = 3
+        elif len(action) == 2: # the action is just the new state
+            self.state[:2] = action
+        # elif action == 4: # overtake
+        #     self.state[2] = 1
+        # elif action == 5: # straight
+        #     self.state[2] = 2
+        # elif action == 6: # change
+        #     self.state[2] = 3
         
         
-        else:
-            raise ValueError('action {} is not a valid action'.format(action))
+        # else:
+        #     raise ValueError('action {} is not a valid action'.format(action))
 
 # object with a location
 class LocObj(object):
@@ -367,19 +382,30 @@ class ObstacleObj(StaticObj):
         self.mask = None
         self.size_max = None
 
+
+    def add_car(self, lane='left', offset=0):
+        halfway = int(self.dom_size[0]/2)
+
+        onethird = int(self.dom_size[1]/3) - 1
+
+        if lane == 'left':
+            self.state[:halfway, offset:offset+3] = 1
+        else:
+            self.state[halfway:, offset:offset+3] = 1
+
     def add_right_lane_car(self):
         halfway = int(self.dom_size[0]/2)
 
         onethird = int(self.dom_size[1]/3) - 1
 
-        self.state[halfway:, onethird:onethird+3] = 1
+        self.state[halfway:, :3] = 1
 
     def add_left_lane_car(self):
         halfway = int(self.dom_size[0]/2)
 
         onethird = int(self.dom_size[1]/3) - 1
 
-        self.state[:halfway, :3] = 1
+        self.state[:halfway, onethird:onethird+3] = 1
 
     def add_random_obstacle(self, x_range, y_range, exclude_from_x_range=[], exclude_from_y_range=[]):
         def random_num(i_range, exclude_from_range=[]):

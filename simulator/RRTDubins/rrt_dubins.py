@@ -1,6 +1,5 @@
 """
-
-Path planning Sample Code with RRT with Reeds-Shepp path
+Path planning Sample Code with RRT with Dubins path
 
 author: AtsushiSakai(@Atsushi_twi)
 
@@ -14,38 +13,39 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
-#                 "/ReedsSheppPath/")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
-                "/../RRTStar/")
+                "/../DubinsPath/")
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
+                "/../RRT/")
 
 try:
-    import reeds_shepp_path_planning
-    from rrt_star import RRTStar
+    from rrt import RRT
+    import dubins_path_planning
 except ImportError:
     raise
 
 show_animation = True
 
 
-class RRTStarReedsShepp(RRTStar):
+class RRTDubins(RRT):
     """
-    Class for RRT star planning with Reeds Shepp path
+    Class for RRT planning with Dubins path
     """
 
-    class Node(RRTStar.Node):
+    class Node(RRT.Node):
         """
         RRT Node
         """
 
         def __init__(self, x, y, yaw):
             super().__init__(x, y)
+            self.cost = 0
             self.yaw = yaw
             self.path_yaw = []
 
     def __init__(self, start, goal, obstacle_list, rand_area,
+                 goal_sample_rate=10,
                  max_iter=200,
-                 connect_circle_dist=50.0,
                  path=None
                  ):
         """
@@ -61,11 +61,11 @@ class RRTStarReedsShepp(RRTStar):
         self.end = self.Node(goal[0], goal[1], goal[2])
         self.min_rand = rand_area[0]
         self.max_rand = rand_area[1]
+        self.goal_sample_rate = goal_sample_rate
         self.max_iter = max_iter
         self.obstacle_list = obstacle_list
-        self.connect_circle_dist = connect_circle_dist
 
-        self.curvature = 1.5
+        self.curvature = 1.5 # for dubins path
         self.goal_yaw_th = np.deg2rad(15.0)
         self.goal_xy_th = 0.5
 
@@ -73,13 +73,13 @@ class RRTStarReedsShepp(RRTStar):
 
     def planning(self, animation=True, search_until_max_iter=True):
         """
-        planning
+        execute planning
 
         animation: flag for animation on or off
         """
 
         self.node_list = [self.start]
-
+        
         if self.path is not None:
             for i, point in enumerate(self.path):
                 iter_per_point = max(15, int(self.max_iter/len(self.path)))
@@ -94,12 +94,7 @@ class RRTStarReedsShepp(RRTStar):
                     new_node = self.steer(self.node_list[nearest_ind], rnd)
 
                     if self.check_collision_square(new_node, self.obstacle_list):
-                        near_inds = self.find_near_nodes(new_node)
-                        new_node = self.choose_parent(new_node, near_inds)
-                        if new_node:
-                            self.node_list.append(new_node)
-                            self.rewire(new_node, near_inds)
-                            self.try_goal_path(new_node)
+                        self.node_list.append(new_node)
 
                     if animation and i % 5 == 0:
                         self.plot_start_goal_arrow()
@@ -108,24 +103,17 @@ class RRTStarReedsShepp(RRTStar):
                     if (not search_until_max_iter) and new_node:  # check reaching the goal
                         last_index = self.search_best_goal_node()
                         if last_index:
-                            path = self.generate_final_course(last_index)
-                            return path
+                            return self.generate_final_course(last_index)
 
-
-        else:
+        else:        
             for i in range(self.max_iter):
-                # print("Iter:", i, ", number of nodes:", len(self.node_list))
+                print("Iter:", i, ", number of nodes:", len(self.node_list))
                 rnd = self.get_random_node()
                 nearest_ind = self.get_nearest_node_index(self.node_list, rnd)
                 new_node = self.steer(self.node_list[nearest_ind], rnd)
 
                 if self.check_collision_square(new_node, self.obstacle_list):
-                    near_indexes = self.find_near_nodes(new_node)
-                    new_node = self.choose_parent(new_node, near_indexes)
-                    if new_node:
-                        self.node_list.append(new_node)
-                        self.rewire(new_node, near_indexes)
-                        self.try_goal_path(new_node)
+                    self.node_list.append(new_node)
 
                 if animation and i % 5 == 0:
                     self.plot_start_goal_arrow()
@@ -136,7 +124,7 @@ class RRTStarReedsShepp(RRTStar):
                     if last_index:
                         return self.generate_final_course(last_index)
 
-            # print("reached max iteration")
+            print("reached max iteration")
 
         last_index = self.search_best_goal_node()
         if last_index:
@@ -146,18 +134,7 @@ class RRTStarReedsShepp(RRTStar):
 
         return None
 
-    def try_goal_path(self, node):
-
-        goal = self.Node(self.end.x, self.end.y, self.end.yaw)
-
-        new_node = self.steer(node, goal)
-        if new_node is None:
-            return
-
-        if self.check_collision_square(new_node, self.obstacle_list):
-            self.node_list.append(new_node)
-
-    def draw_graph(self, rnd=None):
+    def draw_graph(self, rnd=None):  # pragma: no cover
         plt.clf()
         # for stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect('key_release_event',
@@ -169,7 +146,7 @@ class RRTStarReedsShepp(RRTStar):
                 plt.plot(node.path_x, node.path_y, "-g")
 
         for (ox, oy, size) in self.obstacle_list:
-            self.plot_square(ox, oy, size)
+            plt.plot_square(ox, oy, size)
             # plt.plot(ox, oy, "ok", ms=30 * size)
 
         plt.plot(self.start.x, self.start.y, "xr")
@@ -179,32 +156,19 @@ class RRTStarReedsShepp(RRTStar):
         self.plot_start_goal_arrow()
         plt.pause(0.01)
 
-    @staticmethod
-    def plot_square(x, y, size, color="-b"):  # pragma: no cover
-        x0 = 2*[x-0.5]
-        x1 = 2*[x+0.5]
-        y0 = 2*[y-0.5]
-        y1 = 2*[y+0.5]
-        x_right = [x-0.5, x+0.5]
-        y_up = [y-0.5, y+0.5]
-        plt.plot(x0, y_up, color)
-        plt.plot(x1, y_up, color)
-        plt.plot(x_right, y0, color)
-        plt.plot(x_right, y1, color)
-
-    def plot_start_goal_arrow(self):
-        reeds_shepp_path_planning.plot_arrow(
+    def plot_start_goal_arrow(self):  # pragma: no cover
+        dubins_path_planning.plot_arrow(
             self.start.x, self.start.y, self.start.yaw)
-        reeds_shepp_path_planning.plot_arrow(
+        dubins_path_planning.plot_arrow(
             self.end.x, self.end.y, self.end.yaw)
 
     def steer(self, from_node, to_node):
 
-        px, py, pyaw, mode, course_lengths = reeds_shepp_path_planning.reeds_shepp_path_planning(
+        px, py, pyaw, mode, course_length = dubins_path_planning.dubins_path_planning(
             from_node.x, from_node.y, from_node.yaw,
             to_node.x, to_node.y, to_node.yaw, self.curvature)
 
-        if not px:
+        if len(px) <= 1:  # cannot find a dubins path
             return None
 
         new_node = copy.deepcopy(from_node)
@@ -215,43 +179,41 @@ class RRTStarReedsShepp(RRTStar):
         new_node.path_x = px
         new_node.path_y = py
         new_node.path_yaw = pyaw
-        new_node.cost += sum([abs(l) for l in course_lengths])
+        new_node.cost += course_length
         new_node.parent = from_node
 
         return new_node
 
     def calc_new_cost(self, from_node, to_node):
 
-        _, _, _, _, course_lengths = reeds_shepp_path_planning.reeds_shepp_path_planning(
+        _, _, _, _, course_length = dubins_path_planning.dubins_path_planning(
             from_node.x, from_node.y, from_node.yaw,
             to_node.x, to_node.y, to_node.yaw, self.curvature)
-        if not course_lengths:
-            return float("inf")
 
-        return from_node.cost + sum([abs(l) for l in course_lengths])
+        return from_node.cost + course_length
+
+
+    def get_random_node_in_tile(self, left, right, up, down, near_goal=False):
+        if random.randint(0, 100) > self.goal_sample_rate:
+            rnd = self.Node(random.uniform(left, right),
+                            random.uniform(down, up),
+                            random.uniform(-math.pi, math.pi))
+        else:
+            rnd = self.Node(self.end.x, self.end.y, self.end.yaw)
+
+        return rnd
 
     def get_random_node(self):
 
-        rnd = self.Node(random.uniform(self.min_rand, self.max_rand),
-                        random.uniform(self.min_rand, self.max_rand),
-                        random.uniform(-math.pi, math.pi)
-                        )
+        if random.randint(0, 100) > self.goal_sample_rate:
+            rnd = self.Node(random.uniform(self.min_rand, self.max_rand),
+                            random.uniform(self.min_rand, self.max_rand),
+                            random.uniform(-math.pi, math.pi)
+                            )
+        else:  # goal point sampling
+            rnd = self.Node(self.end.x, self.end.y, self.end.yaw)
 
         return rnd
-
-    def get_random_node_in_tile(self, left, right, up, down, near_goal=False):
-        rnd = self.Node(random.uniform(left, right),
-                        random.uniform(down, up),
-                        random.uniform(-math.pi, math.pi))
-
-        return rnd
-
-        # if not near_goal or (near_goal and random.randint(0, 100) > 50):
-        #     rnd = self.Node(random.uniform(left, right),
-        #                     random.uniform(down, up))
-        # else:  # goal point sampling
-        #     rnd = self.Node(self.end.x, self.end.y)
-        # return rnd
 
     def search_best_goal_node(self):
 
@@ -259,7 +221,6 @@ class RRTStarReedsShepp(RRTStar):
         for (i, node) in enumerate(self.node_list):
             if self.calc_dist_to_goal(node.x, node.y) <= self.goal_xy_th:
                 goal_indexes.append(i)
-        # print("goal_indexes:", len(goal_indexes))
 
         # angle check
         final_goal_indexes = []
@@ -267,13 +228,10 @@ class RRTStarReedsShepp(RRTStar):
             if abs(self.node_list[i].yaw - self.end.yaw) <= self.goal_yaw_th:
                 final_goal_indexes.append(i)
 
-        # print("final_goal_indexes:", len(final_goal_indexes))
-
         if not final_goal_indexes:
             return None
 
         min_cost = min([self.node_list[i].cost for i in final_goal_indexes])
-        # print("min_cost:", min_cost)
         for i in final_goal_indexes:
             if self.node_list[i].cost == min_cost:
                 return i
@@ -281,45 +239,40 @@ class RRTStarReedsShepp(RRTStar):
         return None
 
     def generate_final_course(self, goal_index):
-        path = [[self.end.x, self.end.y, self.end.yaw]]
+        print("final")
+        path = [[self.end.x, self.end.y]]
         node = self.node_list[goal_index]
         while node.parent:
-            for (ix, iy, iyaw) in zip(reversed(node.path_x), reversed(node.path_y), reversed(node.path_yaw)):
-                path.append([ix, iy, iyaw])
+            for (ix, iy) in zip(reversed(node.path_x), reversed(node.path_y)):
+                path.append([ix, iy])
             node = node.parent
-        path.append([self.start.x, self.start.y, self.start.yaw])
+        path.append([self.start.x, self.start.y])
         return path
 
 
-def main(max_iter=100):
+def main():
     print("Start " + __file__)
-
     # ====Search Path with RRT====
     obstacleList = [
         (5, 5, 1),
-        (4, 6, 1),
-        (4, 8, 1),
-        (4, 10, 1),
-        (6, 5, 1),
-        (7, 5, 1),
-        (8, 6, 1),
-        (8, 8, 1),
-        (8, 10, 1)
+        (3, 6, 2),
+        (3, 8, 2),
+        (3, 10, 2),
+        (7, 5, 2),
+        (9, 5, 2)
     ]  # [x,y,size(radius)]
 
     # Set Initial parameters
     start = [0.0, 0.0, np.deg2rad(0.0)]
-    goal = [6.0, 7.0, np.deg2rad(90.0)]
+    goal = [10.0, 10.0, np.deg2rad(0.0)]
 
-    rrt_star_reeds_shepp = RRTStarReedsShepp(start, goal,
-                                             obstacleList,
-                                             [-2.0, 15.0], max_iter=max_iter)
-    path = rrt_star_reeds_shepp.planning(animation=show_animation)
+    rrt_dubins = RRTDubins(start, goal, obstacleList, [-2.0, 15.0])
+    path = rrt_dubins.planning(animation=show_animation)
 
     # Draw final path
-    if path and show_animation:  # pragma: no cover
-        rrt_star_reeds_shepp.draw_graph()
-        plt.plot([x for (x, y, yaw) in path], [y for (x, y, yaw) in path], '-r')
+    if show_animation:  # pragma: no cover
+        rrt_dubins.draw_graph()
+        plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
         plt.grid(True)
         plt.pause(0.001)
         plt.show()

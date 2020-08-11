@@ -50,6 +50,17 @@ class Viewer(object):
 
         implot = plt.imshow(image)
 
+        # self.ax.axis('off')
+        plt.tick_params(
+            # axis='x',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            left=False,
+            right=False,
+            top=False,         # ticks along the top edge are off
+            labelbottom=False,
+            labelleft=False) # labels along the bottom edge are off
+
         ##### LEGEND STUFF #####
 
         legend_keys = []
@@ -59,7 +70,7 @@ class Viewer(object):
             loc='upper right', 
             shadow=False,
             handles=legend_keys,
-            bbox_to_anchor=(1.35, 1.)
+            bbox_to_anchor=(1.55, 1.)
             )
 
         prop_legend_keys = []
@@ -69,7 +80,7 @@ class Viewer(object):
             loc = 'lower center',
             shadow=False,
             handles=prop_legend_keys,
-            bbox_to_anchor=(0.5, -0.3),
+            bbox_to_anchor=(0.5, -0.5),
             ncol = 2
         )
 
@@ -89,7 +100,7 @@ class Viewer(object):
 
         return self.camera
 
-    def render_rrt(self, env, path):
+    def render_rrt(self, env, path, other_paths=None):
         # get non-whitespace in the domain
         nonwhitespace = (np.sum(env.obj_state, -1) > 0).astype(float)
         # make a map of the whitespace
@@ -110,8 +121,16 @@ class Viewer(object):
 
         implot = plt.imshow(image)
 
+        agent_state = env.get_rrt_state()
+
+        plt.plot(agent_state[0], env.dom_size[1] - agent_state[1] - 1, '-bo', markersize=10)
+
         if path is not None:
-            plt.plot([x for (x, y) in path], [env.dom_size[1] - y - 1 for (x, y) in path], '-r')
+            plt.plot([x for (x, y) in path], [env.dom_size[1] - y - 1 for (x, y) in path], '-r', linewidth=2)
+
+        if other_paths is not None:
+            for other_path in other_paths:
+                plt.plot([x for (x, y) in other_path], [env.dom_size[1] - y - 1 for (x, y) in other_path], '-b', linewidth=1, alpha=0.5)
 
         ##### LEGEND STUFF #####
 
@@ -122,7 +141,7 @@ class Viewer(object):
             loc='upper right', 
             shadow=False,
             handles=legend_keys,
-            bbox_to_anchor=(1.35, 1.)
+            bbox_to_anchor=(1.7, 1.)
             )
 
         prop_legend_keys = []
@@ -137,6 +156,7 @@ class Viewer(object):
         )
 
         plt.gca().add_artist(legend1)
+        plt.tight_layout()
 
         if self.mode == 'human':
             plt.draw()

@@ -26,7 +26,7 @@ class DriveWorldSim(Sim):
         self.env = None # Env is defined in reset()
         self.obj_dict = OrderedDict()
         self.action_dict = {
-            'nothing': 0, 'left': 1, 'right': 2, 'up': 3, 'overtake' : 4, 'straight' : 5, 'change': 6
+            'nothing': 0, 'left': 1, 'right': 2, 'up': 3 #, 'overtake' : 4, 'straight' : 5, 'change': 6
         }
 
     def reset(self):
@@ -165,11 +165,12 @@ class DriveWorldSim(Sim):
     def make_obstacles(self):
         # mask = np.array([self.agent.state, self.goal_o.state, self.goal_s.state, self.goal_c.state])
 
-        self.obstacles.add_right_lane_car()
-        self.obstacles.add_left_lane_car()
+        self.obstacles.add_car(lane='right', offset=3)
+        self.obstacles.add_car(lane='left', offset=6)
 
     def make_leftlane(self):
         self.leftlane.add_leftlane()
+        self.leftlane.state[self.goal_c.state[0], self.goal_c.state[1]] = 0
 
     # save proposition state of the environment
     # move objects
@@ -189,8 +190,8 @@ class DriveWorldSim(Sim):
 
         return self.viewer.render(self.env)
 
-    def render_rrt(self, path, mode='human'):
+    def render_rrt(self, path, other_paths=None, mode='human'):
         if self.viewer == None:
             self.viewer = Viewer(mode=mode)
 
-        return self.viewer.render_rrt(self.env, path)
+        return self.viewer.render_rrt(self.env, path, other_paths)

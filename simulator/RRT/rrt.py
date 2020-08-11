@@ -246,9 +246,10 @@ class RRT:
         if node is None:
             return False
 
-        for (ox, oy, size) in obstacleList:
+        # du, dd, dl, dr = 'd_up, d_down, d_left, d_right'
+        for (ox, oy, [du, dd, dl, dr]) in obstacleList:
             for (x, y) in zip(node.path_x, node.path_y):
-                if (x >= ox-0.5 and x <= ox+0.5) and (y >= oy-0.5 and y <= oy+0.5):
+                if (x >= ox-dl and x <= ox+dr) and (y >= oy-dd and y <= oy+du):
                     return False # collision
         
         return True #safe

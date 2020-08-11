@@ -200,7 +200,12 @@ class Env(object):
         raise NotImplementedError()
 
     def step(self, action_name):
-        action = self.action_dict[action_name]
+        if isinstance(action_name, list):
+            action = tuple(action_name)
+        elif isinstance(action_name, tuple):
+            action = action_name
+        else:
+            action = self.action_dict[action_name]
 
         # 1. the objects step
         for obj in self.objects:
@@ -258,7 +263,8 @@ class Env(object):
             # else, wipe obj_state (set it to 0) and set the obj's position to 1
             else:
                 self.obj_state[..., i] = 0
-                self.obj_state[obj.state[0], obj.state[1], i] = 1
+                state = obj.get_state()
+                self.obj_state[state[0], state[1], i] = 1
 
     def render(self, mode='human'):
         if self.viewer == None:
@@ -473,6 +479,8 @@ class DriveWorldEnv(Env):
     def __init__(self, name, dom_size, action_dict):
         super().__init__(name, dom_size, action_dict)
 
+        self.option_start = None
+
     def make_reward_function(self):
         initial_state = self.get_state()
 
@@ -509,6 +517,11 @@ class DriveWorldEnv(Env):
 
         return state
 
+    def get_rrt_state(self):
+        state = self.obj_dict['agent'].get_rrt_state()
+
+        return state
+
     # given state of form [3, 2, 4, 8, 1, 0, 0, 0]
     # set object and prop states to match
     def set_state(self, state):
@@ -522,5 +535,5 @@ class DriveWorldEnv(Env):
 
     # ie [8]
     def get_full_state_space(self):
-        state_space = self.dom_size + [4] # THIS IS FOR THE 4 MANEUVERS. I need to parameterize this
+        state_space = self.dom_size # + [4] # THIS IS FOR THE 4 MANEUVERS. I need to parameterize this
         return state_space

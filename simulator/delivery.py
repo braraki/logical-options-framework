@@ -45,7 +45,6 @@ class DeliverySim(GridWorldSim):
         self.make_obstacles()
         self.make_agent()
         self.make_goals()
-        print('f')
 
     def add_props(self):
         prop_dict = OrderedDict()
@@ -64,6 +63,13 @@ class DeliverySim(GridWorldSim):
             obj_name2='goal_b'
             )
 
+        # "Agent on Goal C"
+        prop_dict['onc'] = SameLocationProp(
+            name='onc',
+            obj_name1='agent',
+            obj_name2='goal_c'
+            )
+
         # "Agent on Goal H"
         prop_dict['onh'] = SameLocationProp(
             name='onh',
@@ -71,26 +77,34 @@ class DeliverySim(GridWorldSim):
             obj_name2='goal_h'
         )
 
-        # "Delivery B Canceled"
-        prop_dict['canceled'] = RandomProp(
+        # "Delivery C Canceled"
+        prop_dict['canceled'] = ExternalProp(
             name='canceled',
-            prob=0.05
+            value=False
         )
 
-        # "Goal A and Delivery B Canceled"
+        # "Goal A and Delivery C Canceled"
         prop_dict['a_and_canceled'] = CombinedProp(
             name='a_and_canceled',
             prop1=prop_dict['ona'],
             prop2=prop_dict['canceled'],
-            prop_idxs=[0,3]
+            prop_idxs=[0,4]
         )
 
-        # "Goal B and Delivery B Canceled"
+        # "Goal B and Delivery C Canceled"
         prop_dict['b_and_canceled'] = CombinedProp(
             name='b_and_canceled',
             prop1=prop_dict['onb'],
             prop2=prop_dict['canceled'],
-            prop_idxs=[1,3]
+            prop_idxs=[1,4]
+        )
+
+        # "Goal C and Delivery C Canceled"
+        prop_dict['c_and_canceled'] = CombinedProp(
+            name='c_and_canceled',
+            prop1=prop_dict['onc'],
+            prop2=prop_dict['canceled'],
+            prop_idxs=[2,4]
         )
 
         # "Goal H and Delivery B Canceled"
@@ -98,7 +112,7 @@ class DeliverySim(GridWorldSim):
             name='h_and_canceled',
             prop1=prop_dict['onh'],
             prop2=prop_dict['canceled'],
-            prop_idxs=[2,3]
+            prop_idxs=[3,4]
         )
 
         # "Agent on Obstacle"
@@ -121,7 +135,9 @@ class DeliverySim(GridWorldSim):
             state_space=self.dom_size)
         obj_dict['goal_b'] = GridGoalObj(name='b', color=[0, 1, 0], 
             state_space=self.dom_size)
-        obj_dict['goal_h'] = GridGoalObj(name='h', color=[0, 0, 1], 
+        obj_dict['goal_c'] = GridGoalObj(name='c', color=[0, 0, 1], 
+            state_space=self.dom_size)
+        obj_dict['goal_h'] = GridGoalObj(name='h', color=[0, 1, 1], 
             state_space=self.dom_size)
         obj_dict['obstacles'] = ObstacleObj(name='obstacles', color=[0, 0, 0],
             dom_size=self.dom_size)
@@ -132,25 +148,47 @@ class DeliverySim(GridWorldSim):
         # left or right side of the gridworld
         # at a random height
         mask = np.copy(self.obstacles.state)
+        # self.agent.create_with_mask(
+        #     x_range=[0, self.dom_size[1]-1],
+        #     y_range=[i for i in range(self.dom_size[1])],
+        #     mask=mask
+        # )
         self.agent.create_with_mask(
-            x_range=[0, self.dom_size[1]-1],
-            y_range=[i for i in range(self.dom_size[1])],
+            x_range=[7],
+            y_range=[0],
             mask=mask
         )
 
     def make_goals(self):
         mask = np.copy(self.obstacles.state)
         mask[self.agent.state[0], self.agent.state[1]] = 1
+        # self.goal_a.create_with_mask(
+        #     x_range=[i for i in range(self.dom_size[0])],
+        #     y_range=[i for i in range(self.dom_size[1])],
+        #     mask=mask
+        # )
         self.goal_a.create_with_mask(
-            x_range=[i for i in range(self.dom_size[0])],
-            y_range=[i for i in range(self.dom_size[1])],
+            x_range=[1],
+            y_range=[7],
             mask=mask
         )
         
         mask[self.goal_a.state[0], self.goal_a.state[1]] = 1
         self.goal_b.create_with_mask(
-            x_range=[i for i in range(self.dom_size[0])],
-            y_range=[i for i in range(self.dom_size[1])],
+            x_range=[11],
+            y_range=[3],
+            mask=mask
+        )
+
+        mask[self.goal_b.state[0], self.goal_b.state[1]] = 1
+        # self.goal_c.create_with_mask(
+        #     x_range=[i for i in range(self.dom_size[0])],
+        #     y_range=[i for i in range(self.dom_size[1])],
+        #     mask=mask
+        # )
+        self.goal_c.create_with_mask(
+            x_range=[3],
+            y_range=[13],
             mask=mask
         )
 
