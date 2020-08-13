@@ -357,11 +357,9 @@ class RRTOption(OptionBase):
 
 class QLearningOption(OptionBase):
 
-    def __init__(self, safety_spec, subgoal, T, P, ss_size, alpha=0.5):
+    def __init__(self, safety_spec, subgoal, T, P, ss_size):
         # subgoal is the index of the subgoal prop
         super().__init__(safety_spec, subgoal)
-
-        self.alpha = alpha
 
         self.ss_size = ss_size
 
@@ -429,7 +427,7 @@ class QLearningOption(OptionBase):
             R += cost * P[i]
         return R
 
-    def update_qfunction(self, state_index, action, next_state_index):
+    def update_qfunction(self, state_index, action, next_state_index, gamma=1, alpha=0.5):
         # self.nO
         # self.ss_size
 
@@ -438,13 +436,11 @@ class QLearningOption(OptionBase):
 
         # self.R is the low-level reward function
 
-        gamma = 1.
         reward = self.R[state_index]
         q_update = reward + gamma * (self.reward[next_state_index] - self.policy[state_index, action])
-        self.policy[state_index, action] += self.alpha * (q_update)
+        self.policy[state_index, action] += alpha * (q_update)
 
         self.reward = np.max(self.policy, axis=1)
-        # return V, Q    
 
 class LVIOption(OptionBase):
 
@@ -568,7 +564,8 @@ class LVIOption(OptionBase):
 
 class MetaPolicyBase(object):
 
-    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env):
+    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
         self.task_spec = task_spec
         self.tm = task_spec.tm
         # instances of Subgoal
@@ -586,6 +583,13 @@ class MetaPolicyBase(object):
         self.options = None
         self.reward = None
         self.poss = None
+
+        # training parameters
+        self.num_episodes = num_episodes
+        self.episode_length = episode_length
+        self.gamma = gamma
+        self.alpha = alpha
+        self.epsilon = epsilon
 
     def init_poss(self, subgoals):
         raise NotImplementedError
@@ -1016,10 +1020,12 @@ class LVIMetaPolicy(MetaPolicyBase):
 
         return Q
 
-class QLearningMetaPolicy(MetaPolicyBase):
-
-    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env):
-        super().__init__(subgoals, task_spec, safety_props, safety_specs, env)
+# abstract class for metapolicies on discrete spaces
+class DiscreteMetaPolicy(MetaPolicyBase):
+    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+        super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
+                         num_episodes, episode_length, gamma, alpha, epsilon)
 
         self.T = self.make_transition_function(env)
         # assume that the order of props is always
@@ -1037,7 +1043,10 @@ class QLearningMetaPolicy(MetaPolicyBase):
         self.option_rewards = self.make_option_rewards_function()
         self.q_learning(env)
 
-        self.Q = self.make_policy(env, task_spec)
+        self.Q = None
+
+    def q_learning(self, env):
+        raise NotImplementedError()
 
     def make_transition_function(self, env):
         initial_state = env.get_state()
@@ -1050,7 +1059,7 @@ class QLearningMetaPolicy(MetaPolicyBase):
         P = env.make_prop_map()
         env.set_state(initial_state)
         return P
-
+    
     def make_logical_options(self, subgoals, safety_specs):
         options = []
         for subgoal, safety_spec in zip(subgoals, safety_specs):
@@ -1077,78 +1086,13 @@ class QLearningMetaPolicy(MetaPolicyBase):
         y = np.random.choice(range(dom[1]))
         return [x, y]
 
-    def q_learning(self, env):
-        num_episodes = 1000
-        episode_length = 100
-        nO = len(self.options)
-        epsilon = 0.1
+    def is_terminated(self, env, option):
+        return self.options[option].is_terminated(env)
 
-        initial_state = env.get_state()
-
-        for i in range(num_episodes):
-            random_state = self.get_random_state(env)
-            env.set_state(random_state)
-            option_index = i % nO # episodes loop thru options
-
-            for j in range(episode_length):
-                current_state = env.state_to_idx(env.get_state())
-                action = self.get_epsilon_greed_action(env, option_index, current_state, epsilon)
-                obs = env.step(action)
-                next_state = env.state_to_idx(env.get_state())
-
-                for option in self.options:
-                    option.update_qfunction(current_state, env.action_dict[action], next_state)
-
-            if i % 5 == 0:
-                env.set_state(initial_state)
-                episode_reward, success = self.evaluate_policy(env)
-                print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
-
-        env.set_state(initial_state)
-
-    def evaluate_policy(self, env):
-        self.Q = self.make_policy(env, self.task_spec)
-        f = 0
-        goal_state = 6
-        max_steps_in_option = 30
-
-        reward = 0
-        success = False
-
-        for i in range(5):
-            option = self.get_option(env, f)
-            f_prev = f
-            steps_in_option = 0
-            while not self.is_terminated(env, option) and f_prev == f and steps_in_option < max_steps_in_option:
-                state_index = env.state_to_idx(env.get_state())
-                reward += self.task_spec.task_state_costs[option]*self.options[option].reward[state_index]
-
-                action = self.get_action(env, option)
-                obs = env.step(action)
-                f_prev = f
-                f = self.get_fsa_state(env, f)
-                steps_in_option += 1
-                if f == 1:
-                    if np.random.uniform() < 0.0:
-                        env.prop_dict['canceled'].value = True
-                    else:
-                        env.prop_dict['canceled'].value = False
-                else:
-                    env.prop_dict['canceled'].value = False
-            if f == goal_state:
-                success = True
-                break
-            reward += self.task_spec.task_state_costs[option]*self.options[option].reward[state_index]
-
-        self.Q = None
-
-        return reward, success
-
-    def make_option_rewards_function(self):
-        reward_list = [option.reward for option in self.options]
-        reward = np.vstack(reward_list)
-
-        return reward
+    def get_fsa_state(self, env, f):
+        p = env.get_proposition()
+        next_f = np.argmax(self.tm[f, :, p])        
+        return next_f
 
     def make_poss(self):
         # define a transition matrix for poss, p(s' | s, o)
@@ -1156,6 +1100,27 @@ class QLearningMetaPolicy(MetaPolicyBase):
         poss = [option.poss for option in self.options]
 
         return poss
+
+    def get_action(self, env, option):
+        return self.options[option].get_action(env)
+
+    # used in the make_policy function to do high-level value iteration
+    def init_value_function(self, ss_size, nF):
+        V = np.zeros((nF, ss_size))
+        return V
+
+    def make_option_rewards_function(self):
+        reward_list = [option.reward for option in self.options]
+        reward = np.vstack(reward_list)
+
+        return reward
+
+    def make_reward_function(self, task_spec):
+        R = np.zeros((self.nF, self.ss_size, self.nO))
+
+        for i, cost in enumerate(task_spec.task_state_costs):
+            R[i] = cost
+        return R
 
     def get_option(self, env, f):
         if self.Q is None:
@@ -1170,36 +1135,89 @@ class QLearningMetaPolicy(MetaPolicyBase):
 
         return option
 
-    def get_action(self, env, option):
-        return self.options[option].get_action(env)
+class QLearningMetaPolicy(DiscreteMetaPolicy):
 
-    def is_terminated(self, env, option):
-        return self.options[option].is_terminated(env)
+    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+        super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
+                         num_episodes, episode_length, gamma, alpha, epsilon)
 
-    def get_fsa_state(self, env, f):
-        # state = env.get_state()
-        # s_idx = env.state_to_idx(state)
+        self.Q = self.make_policy(env, task_spec)
 
-        p = env.get_proposition()
+    def q_learning(self, env):
+        nO = len(self.options)
 
-        # p = np.argmax(self.P[:, s_idx])
-        # print("props: {}".format(self.P[:, s_idx]))
+        initial_state = env.get_state()
 
-        next_f = np.argmax(self.tm[f, :, p])
-        # # print(tm[f, :, p])
-        
-        return next_f
+        for i in range(self.num_episodes):
+            random_state = self.get_random_state(env)
+            env.set_state(random_state)
+            option_index = i % nO # episodes loop thru options
 
-    def make_reward_function(self, task_spec):
-        R = np.zeros((self.nF, self.ss_size, self.nO))
+            num_steps = 0
+            # while not self.is_terminated(env, option_index) and num_steps < self.episode_length:
+            while num_steps < self.episode_length:
+                current_state = env.state_to_idx(env.get_state())
+                action = self.get_epsilon_greed_action(env, option_index, current_state, self.epsilon)
+                obs = env.step(action)
+                next_state = env.state_to_idx(env.get_state())
 
-        for i, cost in enumerate(task_spec.task_state_costs):
-            R[i] = cost
-        return R
+                for option in self.options:
+                    option.update_qfunction(current_state, env.action_dict[action], next_state,
+                    gamma=self.gamma, alpha=self.alpha)
 
-    def init_value_function(self, ss_size, nF):
-        V = np.zeros((nF, ss_size))
-        return V
+                num_steps += 1
+
+            if i % 5 == 0:
+                env.set_state(initial_state)
+                episode_reward, success = self.evaluate_policy(env)
+                print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
+
+        env.set_state(initial_state)
+
+    def evaluate_policy(self, env):
+        self.Q = self.make_policy(env, self.task_spec)
+        f = 0
+        goal_state = 6
+        max_steps_in_option = 30
+        max_steps = 100
+
+        reward = 0
+        success = False
+        num_steps = 0
+
+        while num_steps < max_steps:
+            option = self.get_option(env, f)
+            f_prev = f
+            steps_in_option = 0
+            while not self.is_terminated(env, option) and f_prev == f and steps_in_option < max_steps_in_option and num_steps < max_steps and f != goal_state:
+                state_index = env.state_to_idx(env.get_state())
+
+                # print(option, self.task_spec.task_state_costs[f]*self.options[option].R[state_index])
+
+                reward += self.task_spec.task_state_costs[f]*self.options[option].R[state_index]
+
+                action = self.get_action(env, option)
+                obs = env.step(action)
+                f_prev = f
+                f = self.get_fsa_state(env, f)
+                steps_in_option += 1
+                num_steps += 1
+                if f == 1:
+                    if np.random.uniform() < 0.0:
+                        env.prop_dict['canceled'].value = True
+                    else:
+                        env.prop_dict['canceled'].value = False
+                else:
+                    env.prop_dict['canceled'].value = False
+            if f == goal_state:
+                success = True
+                break
+            # reward += self.task_spec.task_state_costs[f]*self.options[option].R[state_index]
+
+        self.Q = None
+
+        return reward, success
 
     def make_policy(self, env, task_spec, num_iter=50):
         # TM: f x f x p
@@ -1243,7 +1261,7 @@ class QLearningMetaPolicy(MetaPolicyBase):
         for k in range(num_iter):
             # (f x s x o) = (o x f x f) times (f x s)
             # Q = T * (R + gamma*V) -- OLD
-            # Q = R + T * V
+            # Q = R-1 + T * V
 
             for i, o in enumerate(self.poss):
                 # (s x f) = (s x s) times (s x f + s x f)
@@ -1258,3 +1276,362 @@ class QLearningMetaPolicy(MetaPolicyBase):
             V = np.sum(preV*C, axis=1)
 
         return Q
+
+# NO HIGH-LEVEL FSA USED HERE
+# (fsa stuff still used at the low level for safety stuff)
+class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
+
+    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+        super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
+                         num_episodes, episode_length, gamma, alpha, epsilon)
+
+        self.Q = self.high_level_q_learning(env, env.get_state())
+
+    def q_learning(self, env):
+        nO = len(self.options)
+
+        initial_state = env.get_state()
+
+        for i in range(self.num_episodes):
+            random_state = self.get_random_state(env)
+            env.set_state(random_state)
+            
+            option_index = i % nO # episodes loop thru options
+
+            num_steps = 0
+            # while not self.is_terminated(env, option_index) and num_steps < self.episode_length:
+            while num_steps < self.episode_length:
+                current_state = env.state_to_idx(env.get_state())
+                action = self.get_epsilon_greed_action(env, option_index, current_state, self.epsilon)
+                obs = env.step(action)
+                next_state = env.state_to_idx(env.get_state())
+
+                for option in self.options:
+                    option.update_qfunction(current_state, env.action_dict[action], next_state,
+                                            gamma=self.gamma, alpha=self.alpha)
+
+                num_steps += 1
+
+            if i % 20 == 0:
+                env.set_state(initial_state)
+                episode_reward, success, final_f = self.evaluate_policy(env)
+                print("Episode: {}\t| Reward: {}\t| Success: {} | Final F: {}".format(i, episode_reward, success, final_f))
+
+        env.set_state(initial_state)
+
+    def high_level_q_learning(self, env, start_state, alpha=0.5):
+        previous_start_state = env.get_state()
+
+        Q = np.zeros((self.ss_size, self.nO))
+        V = np.zeros((self.ss_size,))
+
+        num_episodes = 100
+        episode_length = 30
+        gamma = 1
+        epsilon = 0.3
+        
+        # need to keep track of the true FSA state so that a goal reward can be made
+        # and so you can stop learning when the goal state is reached
+        f = 0
+        goal_state = self.task_spec.nF - 1
+        for i in range(num_episodes):
+            env.set_state(start_state)
+            num_steps = 0
+            while num_steps < episode_length and f != goal_state:
+                current_state = env.state_to_idx(env.get_state())
+
+                if np.random.uniform() < epsilon:
+                    option_index = np.random.choice(range(self.nO))
+                else:
+                    option_index = np.argmax(Q[current_state])
+
+                next_state = np.argmax(self.poss[option_index][current_state].toarray())
+
+                env.set_state(env.idx_to_state(next_state))
+
+                f = self.get_fsa_state(env, f)
+
+                if f == goal_state:
+                    reward = 0
+                else:
+                    reward = self.options[option_index].reward[current_state]
+                    # to compensate for the fact that option reward is 0 at the goal
+                    # but should be -1 for the overall policy
+                    if reward == 0:
+                        reward = -1
+
+                q_update = reward + gamma * V[next_state] - Q[current_state, option_index]
+                Q[current_state, option_index] += alpha * q_update
+                V = np.max(Q, axis=1)
+
+                num_steps += 1
+
+                # while not self.is_terminated(env, option_index) and num_steps < episode_length:
+                #     action_index = np.argmax(self.options[option_index].policy[current_state])
+
+                #     f = self.get_fsa_state(env, f)
+
+                #     for a_n, a in env.action_dict.items():
+                #         if a == action_index:
+                #             action_name = a_n
+
+                #     obs = env.step(action_name)
+
+                #     next_state = env.state_to_idx(env.get_state())
+
+                #     if f == goal_state:
+                #         reward = 0
+                #     else:
+                #         reward = self.options[option_index].reward[next_state]
+
+                #     q_update = reward + gamma * V[next_state] - Q[current_state, option_index]
+                #     Q[current_state, option_index] += alpha * q_update
+                #     V = np.max(Q, axis=1)
+
+                #     num_steps += 1
+
+        env.set_state(previous_start_state)
+
+        return Q
+
+    def evaluate_policy(self, env):
+        self.Q = self.high_level_q_learning(env, env.get_state())
+        f = 0
+        goal_state = 6
+        max_steps_in_option = 30
+        max_steps = 100
+
+        reward = 0
+        success = False
+
+        num_steps = 0
+        option = self.get_option(env)
+        while num_steps < max_steps:
+            f_prev = f
+            steps_in_option = 0
+
+            # this is for the case when the policy decides to squat on a goal
+            if self.is_terminated(env, option):
+                option = self.get_option(env)
+                state_index = env.state_to_idx(env.get_state())
+
+                state_reward = self.options[option].R[state_index]
+                # this is to compensate for the fact that the reward for an option is 0 at the goal
+                # but for the overall policy the reward at the option should be -1
+                if state_reward == 0:
+                    state_reward = -1.0
+                # print(option, self.task_spec.task_state_costs[f]*state_reward)
+                reward += self.task_spec.task_state_costs[f]*state_reward
+                action = self.get_action(env, option)
+                obs = env.step(action)
+                f_prev = f
+                f = self.get_fsa_state(env, f)
+                steps_in_option +=1
+                num_steps += 1
+
+            while not self.is_terminated(env, option) and steps_in_option < max_steps_in_option and num_steps < max_steps:
+                state_index = env.state_to_idx(env.get_state())
+                state_reward = self.options[option].R[state_index]
+                # this is to compensate for the fact that the reward for an option is 0 at the goal
+                # but for the overall policy the reward at the option should be -1
+                if state_reward == 0:
+                    state_reward = -1.0
+                # print(option, self.task_spec.task_state_costs[f]*state_reward)
+                reward += self.task_spec.task_state_costs[f]*state_reward
+
+                action = self.get_action(env, option)
+                obs = env.step(action)
+                f_prev = f
+                f = self.get_fsa_state(env, f)
+                steps_in_option += 1
+                num_steps += 1
+                if f == 1:
+                    if np.random.uniform() < 0.0:
+                        env.prop_dict['canceled'].value = True
+                    else:
+                        env.prop_dict['canceled'].value = False
+                else:
+                    env.prop_dict['canceled'].value = False
+            if f == goal_state:
+                success = True
+                break
+            state_index = env.state_to_idx(env.get_state())
+            if state_reward == 0:
+                state_reward = -1.0
+        # reward += self.task_spec.task_state_costs[f]*state_reward
+
+        if reward == 0.0:
+            print('f)')
+            print('fff')
+
+        self.Q = None
+
+        return reward, success, f
+
+    def get_option(self, env):
+        if self.Q is None:
+            print("policy not yet calculated!")
+            return 0
+        
+        # Q: f x s x o
+        state = env.get_state()
+        s_idx = env.state_to_idx(state)
+
+        option = np.argmax(self.Q[s_idx])
+
+        return option
+
+# NO ACCESS TO TM HERE
+# basically, it's model-free LOF where q-learning
+# must be used to learn the high-level policy
+# performance should be about the same as normal LOF,
+# but this alg is not composable
+class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
+
+    def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+        super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
+                         num_episodes, episode_length, gamma, alpha, epsilon)
+
+        self.Q = self.high_level_q_learning(env, env.get_state())
+
+    def q_learning(self, env):
+        nO = len(self.options)
+
+        initial_state = env.get_state()
+
+        for i in range(self.num_episodes):
+            random_state = self.get_random_state(env)
+            env.set_state(random_state)
+            
+            option_index = i % nO # episodes loop thru options
+
+            num_steps = 0
+            # while not self.is_terminated(env, option_index) and num_steps < self.episode_length:
+            while num_steps < self.episode_length:
+                current_state = env.state_to_idx(env.get_state())
+                action = self.get_epsilon_greed_action(env, option_index, current_state, self.epsilon)
+                obs = env.step(action)
+                next_state = env.state_to_idx(env.get_state())
+
+                for option in self.options:
+                    option.update_qfunction(current_state, env.action_dict[action], next_state,
+                                            gamma=self.gamma, alpha=self.alpha)
+
+                num_steps += 1
+
+            if i % 20 == 0:
+                env.set_state(initial_state)
+                episode_reward, success, final_f = self.evaluate_policy(env)
+                print("Episode: {}\t| Reward: {}\t| Success: {} | Final F: {}".format(i, episode_reward, success, final_f))
+
+        env.set_state(initial_state)
+
+    def high_level_q_learning(self, env, start_state, alpha=0.5):
+        previous_start_state = env.get_state()
+
+        nF = self.task_spec.nF
+
+        Q = np.zeros((nF, self.ss_size, self.nO))
+        V = np.zeros((nF, self.ss_size))
+
+        num_episodes = 200
+        episode_length = 20
+        gamma = 1
+        epsilon = 0.3
+        
+        goal_state = self.task_spec.nF - 1
+        for i in range(num_episodes):
+            f = i % (nF - 1) # cycle through the FSA states except the goal state
+
+            env.set_state(start_state)
+            num_steps = 0
+            while num_steps < episode_length:
+                current_state = env.state_to_idx(env.get_state())
+
+                if np.random.uniform() < epsilon:
+                    option_index = np.random.choice(range(self.nO))
+                else:
+                    option_index = np.argmax(Q[f, current_state])
+
+                next_state = np.argmax(self.poss[option_index][current_state].toarray())
+                env.set_state(env.idx_to_state(next_state))
+                next_f = self.get_fsa_state(env, f)
+
+                reward = (self.task_spec.task_state_costs[f]-1) * self.options[option_index].reward[current_state]
+
+                q_update = reward + gamma * V[next_f, next_state] - Q[f, current_state, option_index]
+                Q[f, current_state, option_index] += alpha * q_update
+                V = np.max(Q, axis=2)
+
+                f = next_f
+                # print(f)
+                num_steps += 1
+
+                # while not self.is_terminated(env, option_index) and num_steps < episode_length:
+                #     action_index = np.argmax(self.options[option_index].policy[current_state])
+
+                #     for a_n, a in env.action_dict.items():
+                #         if a == action_index:
+                #             action_name = a_n
+
+                #     obs = env.step(action_name)
+                #     f = self.get_fsa_state(env, f)
+
+                #     next_state = env.state_to_idx(env.get_state())
+                    
+                #     reward = -self.task_spec.task_state_costs[f] * self.options[option_index].reward[next_state]
+
+                #     q_update = reward + gamma * V[f, next_state] - Q[f, current_state, option_index]
+                #     Q[f, current_state, option_index] += alpha * q_update
+                #     V = np.max(Q, axis=2)
+
+                #     num_steps += 1
+
+        env.set_state(previous_start_state)
+
+        return Q
+
+    def evaluate_policy(self, env):
+        self.Q = self.high_level_q_learning(env, env.get_state())
+        f = 0
+        goal_state = 6
+        max_steps_in_option = 30
+        max_steps = 100
+
+        reward = 0
+        success = False
+        num_steps = 0
+
+        while num_steps < max_steps:
+            option = self.get_option(env, f)
+            f_prev = f
+            steps_in_option = 0
+            while not self.is_terminated(env, option) and f_prev == f and steps_in_option < max_steps_in_option and num_steps < max_steps:
+                state_index = env.state_to_idx(env.get_state())
+                reward += self.task_spec.task_state_costs[f]*self.options[option].R[state_index]
+
+                action = self.get_action(env, option)
+                obs = env.step(action)
+                f_prev = f
+                f = self.get_fsa_state(env, f)
+                steps_in_option += 1
+                num_steps += 1
+                if f == 1:
+                    if np.random.uniform() < 0.0:
+                        env.prop_dict['canceled'].value = True
+                    else:
+                        env.prop_dict['canceled'].value = False
+                else:
+                    env.prop_dict['canceled'].value = False
+
+            if f == goal_state:
+                success = True
+                break
+            state_index = env.state_to_idx(env.get_state())
+            # reward += self.task_spec.task_state_costs[f]*self.options[option].R[state_index]
+
+        self.Q = None
+
+        return reward, success, f
