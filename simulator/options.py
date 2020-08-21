@@ -437,10 +437,9 @@ class QLearningOption(OptionBase):
         # self.R is the low-level reward function
 
         reward = self.R[state_index]
-        q_update = reward + gamma * (self.reward[next_state_index] - self.policy[state_index, action])
+        q_update = reward + gamma * self.reward[next_state_index] - self.policy[state_index, action]
         self.policy[state_index, action] += alpha * (q_update)
-
-        self.reward = np.max(self.policy, axis=1)
+        self.reward = np.max(self.policy, axis=1) 
 
 class LVIOption(OptionBase):
 
@@ -1023,9 +1022,18 @@ class LVIMetaPolicy(MetaPolicyBase):
 # abstract class for metapolicies on discrete spaces
 class DiscreteMetaPolicy(MetaPolicyBase):
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
-                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
+                 record_training=False, recording_frequency=5):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
                          num_episodes, episode_length, gamma, alpha, epsilon)
+
+        self.record_training = record_training
+        self.recording_frequency = recording_frequency
+        if record_training:
+            self.training_steps = []
+            self.training_reward = []
+            self.training_success = []
+            self.training_last_state = []
 
         self.T = self.make_transition_function(env)
         # assume that the order of props is always
@@ -1046,6 +1054,9 @@ class DiscreteMetaPolicy(MetaPolicyBase):
         self.Q = None
 
     def q_learning(self, env):
+        raise NotImplementedError()
+
+    def evaluate_policy(self, env):
         raise NotImplementedError()
 
     def make_transition_function(self, env):
@@ -1111,7 +1122,7 @@ class DiscreteMetaPolicy(MetaPolicyBase):
 
     def make_option_rewards_function(self):
         reward_list = [option.reward for option in self.options]
-        reward = np.vstack(reward_list)
+        reward = np.vstack(reward_list) - 1
 
         return reward
 
@@ -1135,12 +1146,33 @@ class DiscreteMetaPolicy(MetaPolicyBase):
 
         return option
 
+    def record_results(self, i, num_steps, initial_state, env):
+        if i % self.recording_frequency == 0:
+            env.set_state(initial_state)
+            episode_reward, success, final_f = self.evaluate_policy(env)
+            if self.record_training:
+                training_steps = i * self.episode_length + (num_steps - 1)
+                self.training_reward.append(episode_reward)
+                self.training_steps.append(training_steps)
+                self.training_success.append(success)
+                self.training_last_state.append(final_f)
+            print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
+
+    def get_results(self):
+        if self.record_training:
+            return {'reward': self.training_reward, 'steps': self.training_steps,
+                    'success': self.training_success, 'last_state': self.training_last_state}
+        else:
+            return None
+
 class QLearningMetaPolicy(DiscreteMetaPolicy):
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
-                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
+                 record_training=False, recording_frequency=5):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
-                         num_episodes, episode_length, gamma, alpha, epsilon)
+                         num_episodes, episode_length, gamma, alpha, epsilon,
+                         record_training, recording_frequency)
 
         self.Q = self.make_policy(env, task_spec)
 
@@ -1167,18 +1199,17 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
                     gamma=self.gamma, alpha=self.alpha)
 
                 num_steps += 1
+            
+            self.option_rewards = self.make_option_rewards_function()
 
-            if i % 5 == 0:
-                env.set_state(initial_state)
-                episode_reward, success = self.evaluate_policy(env)
-                print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
+            self.record_results(i, num_steps, initial_state, env)
 
         env.set_state(initial_state)
 
     def evaluate_policy(self, env):
         self.Q = self.make_policy(env, self.task_spec)
         f = 0
-        goal_state = 6
+        goal_state = self.task_spec.nF - 1
         max_steps_in_option = 30
         max_steps = 100
 
@@ -1190,6 +1221,13 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
             option = self.get_option(env, f)
             f_prev = f
             steps_in_option = 0
+            if self.is_terminated(env, option):
+                num_steps += 1
+                state_index = env.state_to_idx(env.get_state())
+                this_reward = self.task_spec.task_state_costs[f]*self.options[option].R[state_index]
+                if this_reward == 0:
+                    this_reward = -1
+                reward += this_reward
             while not self.is_terminated(env, option) and f_prev == f and steps_in_option < max_steps_in_option and num_steps < max_steps and f != goal_state:
                 state_index = env.state_to_idx(env.get_state())
 
@@ -1217,7 +1255,7 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
 
         self.Q = None
 
-        return reward, success
+        return reward, success, f
 
     def make_policy(self, env, task_spec, num_iter=50):
         # TM: f x f x p
@@ -1282,9 +1320,11 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
 class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
-                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
+                 record_training=False, recording_frequency=20):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
-                         num_episodes, episode_length, gamma, alpha, epsilon)
+                         num_episodes, episode_length, gamma, alpha, epsilon,
+                         record_training, recording_frequency)
 
         self.Q = self.high_level_q_learning(env, env.get_state())
 
@@ -1313,10 +1353,7 @@ class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
 
                 num_steps += 1
 
-            if i % 20 == 0:
-                env.set_state(initial_state)
-                episode_reward, success, final_f = self.evaluate_policy(env)
-                print("Episode: {}\t| Reward: {}\t| Success: {} | Final F: {}".format(i, episode_reward, success, final_f))
+            self.record_results(i, num_steps, initial_state, env)
 
         env.set_state(initial_state)
 
@@ -1398,7 +1435,7 @@ class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
     def evaluate_policy(self, env):
         self.Q = self.high_level_q_learning(env, env.get_state())
         f = 0
-        goal_state = 6
+        goal_state = self.task_spec.nF - 1
         max_steps_in_option = 30
         max_steps = 100
 
@@ -1461,10 +1498,6 @@ class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
                 state_reward = -1.0
         # reward += self.task_spec.task_state_costs[f]*state_reward
 
-        if reward == 0.0:
-            print('f)')
-            print('fff')
-
         self.Q = None
 
         return reward, success, f
@@ -1490,9 +1523,11 @@ class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
 class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
-                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
+                 record_training=False, recording_frequency=20):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
-                         num_episodes, episode_length, gamma, alpha, epsilon)
+                         num_episodes, episode_length, gamma, alpha, epsilon,
+                         record_training, recording_frequency)
 
         self.Q = self.high_level_q_learning(env, env.get_state())
 
@@ -1521,11 +1556,8 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
 
                 num_steps += 1
 
-            if i % 20 == 0:
-                env.set_state(initial_state)
-                episode_reward, success, final_f = self.evaluate_policy(env)
-                print("Episode: {}\t| Reward: {}\t| Success: {} | Final F: {}".format(i, episode_reward, success, final_f))
-
+            self.record_results(i, num_steps, initial_state, env)
+            
         env.set_state(initial_state)
 
     def high_level_q_learning(self, env, start_state, alpha=0.5):
@@ -1536,14 +1568,14 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
         Q = np.zeros((nF, self.ss_size, self.nO))
         V = np.zeros((nF, self.ss_size))
 
-        num_episodes = 200
-        episode_length = 20
-        gamma = 1
-        epsilon = 0.3
+        num_episodes = 500
+        episode_length = 10
+        gamma = 1.
+        epsilon = 0.4
         
         goal_state = self.task_spec.nF - 1
         for i in range(num_episodes):
-            f = i % (nF - 1) # cycle through the FSA states except the goal state
+            f = 0 # i % (nF - 1) # cycle through the FSA states except the goal state
 
             env.set_state(start_state)
             num_steps = 0
@@ -1559,7 +1591,7 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
                 env.set_state(env.idx_to_state(next_state))
                 next_f = self.get_fsa_state(env, f)
 
-                reward = (self.task_spec.task_state_costs[f]-1) * self.options[option_index].reward[current_state]
+                reward = (self.task_spec.task_state_costs[f]) * (self.options[option_index].reward[current_state]-1)
 
                 q_update = reward + gamma * V[next_f, next_state] - Q[f, current_state, option_index]
                 Q[f, current_state, option_index] += alpha * q_update
@@ -1596,7 +1628,7 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
     def evaluate_policy(self, env):
         self.Q = self.high_level_q_learning(env, env.get_state())
         f = 0
-        goal_state = 6
+        goal_state = self.task_spec.nF - 1
         max_steps_in_option = 30
         max_steps = 100
 
@@ -1608,6 +1640,13 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
             option = self.get_option(env, f)
             f_prev = f
             steps_in_option = 0
+            if self.is_terminated(env, option):
+                num_steps += 1
+                state_index = env.state_to_idx(env.get_state())
+                this_reward = self.task_spec.task_state_costs[f]*self.options[option].R[state_index]
+                if this_reward == 0:
+                    this_reward = -1
+                reward += this_reward
             while not self.is_terminated(env, option) and f_prev == f and steps_in_option < max_steps_in_option and num_steps < max_steps:
                 state_index = env.state_to_idx(env.get_state())
                 reward += self.task_spec.task_state_costs[f]*self.options[option].R[state_index]

@@ -2,6 +2,7 @@ import time
 from simulator.rendering import Viewer
 from simulator.delivery import DeliverySim
 from simulator.options import *
+from simulator.reward_machines import *
 from celluloid import Camera
 
 # human: show plots
@@ -11,6 +12,448 @@ render_mode = 'anim'
 
 # 'vi', 'lvi', 'hardcoded', 'options'
 policy_mode = 'options'
+
+# RMs need a slightly different Task Spec
+def make_taskspec_delivery_rm():
+    # go to A or B, then C, then HOME, unless C is CANceled in which case just go to A or B then HOME
+    spec = '(F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 8
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  1  1  0  0  0  0  0  0  1
+    # 1  1  1  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  1  0  0  1  1  0  0
+    # 3  0  0  0  0  0  1  1  0  0  0  0
+    # 4  0  0  0  0  0  0  0  0  0  0  0
+    # 5  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[0, 1, 0] = 1
+    tm[0, 1, 1] = 1
+    tm[0, 0, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 2, 4] = 1
+    tm[0, 3, 5] = 1
+    tm[0, 3, 6] = 1
+    tm[0, 2, 7] = 1
+    tm[0, 2, 8] = 1
+    tm[0, 7, 9] = 1
+    tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  1  0  0  0  0  0  0  0  0  1
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  1  0  1  1  1  1  0  0  0
+    # 4  0  0  0  1  0  0  0  0  0  0  0
+    # 5  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[1, 1, 0] = 1
+    tm[1, 1, 1] = 1
+    tm[1, 3, 2] = 1
+    tm[1, 4, 3] = 1
+    tm[1, 3, 4] = 1
+    tm[1, 3, 5] = 1
+    tm[1, 3, 6] = 1
+    tm[1, 3, 7] = 1
+    tm[1, 6, 8] = 1
+    tm[1, 7, 9] = 1
+    tm[1, 1, 10] = 1
+    # S2
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  1  1  1  0  0  1  1  0  1
+    # 3  1  1  0  0  0  1  1  0  0  0  0
+    # 4  0  0  0  0  0  0  0  0  0  0  0
+    # 5  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[2, 3, 0] = 1
+    tm[2, 3, 1] = 1
+    tm[2, 2, 2] = 1
+    tm[2, 2, 3] = 1
+    tm[2, 2, 4] = 1
+    tm[2, 3, 5] = 1
+    tm[2, 3, 6] = 1
+    tm[2, 2, 7] = 1
+    tm[2, 2, 8] = 1
+    tm[2, 7, 9] = 1
+    tm[2, 2, 10] = 1
+    # S3
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  1  1  1  0  1  1  1  1  0  0  1
+    # 4  0  0  0  0  0  0  0  0  0  0  0
+    # 5  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  1  0  0  0  0  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[3, 3, 0] = 1
+    tm[3, 3, 1] = 1
+    tm[3, 3, 2] = 1
+    tm[3, 6, 3] = 1
+    tm[3, 3, 4] = 1
+    tm[3, 3, 5] = 1
+    tm[3, 3, 6] = 1
+    tm[3, 3, 7] = 1
+    tm[3, 6, 8] = 1
+    tm[3, 7, 9] = 1
+    tm[3, 3, 10] = 1
+    # S4
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # 4  1  1  0  1  0  0  0  0  0  0  1
+    # 5  0  0  1  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  1  1  1  1  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[4, 4, 0] = 1
+    tm[4, 4, 1] = 1
+    tm[4, 5, 2] = 1
+    tm[4, 4, 3] = 1
+    tm[4, 6, 4] = 1
+    tm[4, 6, 5] = 1
+    tm[4, 6, 6] = 1
+    tm[4, 6, 7] = 1
+    tm[4, 6, 8] = 1
+    tm[4, 7, 9] = 1
+    tm[4, 4, 10] = 1
+    # S5
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # 4  0  0  0  0  0  0  0  0  0  0  0
+    # 5  1  1  1  0  0  0  0  0  0  0  1
+    # G  0  0  0  1  1  1  1  1  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[5, 5, 0] = 1
+    tm[5, 5, 1] = 1
+    tm[5, 5, 2] = 1
+    tm[5, 6, 3] = 1
+    tm[5, 6, 4] = 1
+    tm[5, 6, 5] = 1
+    tm[5, 6, 6] = 1
+    tm[5, 6, 7] = 1
+    tm[5, 6, 8] = 1
+    tm[5, 7, 9] = 1
+    tm[5, 5, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # 4  0  0  0  0  0  0  0  0  0  0  0
+    # 5  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    # T  0  0  0  0  0  0  0  0  0  0  0
+    tm[6, 6, :] = 1
+    # T
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # 4  0  0  0  0  0  0  0  0  0  0  0
+    # 5  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  1  1  1  1  1  1  1  1  1  1  1
+    tm[7, 7, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [-1, -1, -1, -1, -1, -1, 0, -1000]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
+
+# sequential task
+# F(a & F (b & (F c & F h))) & G ! o
+def make_taskspec_delivery2_rm():
+    # go to A, then B, then C, then HOME
+    spec = 'F(a & F (b & (F c & F h))) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 6
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  1  1  1  1  0  1  1  1  0  1
+    # 1  1  0  0  0  0  1  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 1] = 1
+    tm[0, 0, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 0, 4] = 1
+    tm[0, 1, 5] = 1
+    tm[0, 0, 6] = 1
+    tm[0, 0, 7] = 1
+    tm[0, 0, 8] = 1
+    tm[0, 5, 9] = 1
+    tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  0  1  1  1  1  0  1  1  0  1
+    # 2  0  1  0  0  0  0  1  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[1, 1, 0] = 1
+    tm[1, 2, 1] = 1
+    tm[1, 1, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 1, 4] = 1
+    tm[1, 1, 5] = 1
+    tm[1, 2, 6] = 1
+    tm[1, 1, 7] = 1
+    tm[1, 1, 8] = 1
+    tm[1, 5, 9] = 1
+    tm[1, 1, 10] = 1
+    # S2
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  1  1  0  1  1  1  1  0  1  0  1
+    # 3  0  0  1  0  0  0  0  1  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[2, 2, 0] = 1
+    tm[2, 2, 1] = 1
+    tm[2, 3, 2] = 1
+    tm[2, 2, 3] = 1
+    tm[2, 2, 4] = 1
+    tm[2, 2, 5] = 1
+    tm[2, 2, 6] = 1
+    tm[2, 3, 7] = 1
+    tm[2, 2, 8] = 1
+    tm[2, 5, 9] = 1
+    tm[2, 2, 10] = 1
+    # S3
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  1  1  1  0  1  1  1  1  0  0  1
+    # G  0  0  0  1  0  0  0  0  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[3, 3, 0] = 1
+    tm[3, 3, 1] = 1
+    tm[3, 3, 2] = 1
+    tm[3, 4, 3] = 1
+    tm[3, 3, 4] = 1
+    tm[3, 3, 5] = 1
+    tm[3, 3, 6] = 1
+    tm[3, 3, 7] = 1
+    tm[3, 4, 8] = 1
+    tm[3, 5, 9] = 1
+    tm[3, 3, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    tm[4, 4, :] = 1
+    # T
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  1  1  1  1  1  1  1  1  1  1  1
+    tm[5, 5, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [-1, -1, -1, -1, 0, -1000]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
+
+# OR task
+# F (a | b) & G ! o
+def make_taskspec_delivery3_rm():
+    # go to A, then B, then C, then HOME
+    spec = 'F (a | b) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 3
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  1  1  1  0  0  1  1  0  1
+    # G  1  1  0  0  0  1  1  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[0, 1, 0] = 1
+    tm[0, 1, 1] = 1
+    tm[0, 0, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 0, 4] = 1
+    tm[0, 1, 5] = 1
+    tm[0, 1, 6] = 1
+    tm[0, 0, 7] = 1
+    tm[0, 0, 8] = 1
+    tm[0, 2, 9] = 1
+    tm[0, 0, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    # T  0  0  0  0  0  0  0  0  0  0  0
+    tm[1, 1, :] = 1
+    # T
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    # T  1  1  1  1  1  1  1  1  1  1  1
+    tm[2, 2, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [-1, 0, -1000]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
+
+# IF task
+# (F (c & F a) & G ! can) | (F a & F can)
+def make_taskspec_delivery4_rm():
+    # go to A, then B, then C, then HOME
+    spec = '(F (c & F a) & G ! can) | (F a & F can) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 6
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  1  0  1  0  0  0  0  0  0  1
+    # 1  1  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  1  0  1  0  1  1  1  0  0
+    # G  0  0  0  0  0  1  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 1] = 1
+    tm[0, 3, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 3, 4] = 1
+    tm[0, 4, 5] = 1
+    tm[0, 3, 6] = 1
+    tm[0, 3, 7] = 1
+    tm[0, 3, 8] = 1
+    tm[0, 5, 9] = 1
+    tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  1  0  1  0  0  0  0  0  0  1
+    # 2  0  0  1  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  1  1  1  1  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[1, 1, 0] = 1
+    tm[1, 1, 1] = 1
+    tm[1, 2, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 4, 4] = 1
+    tm[1, 4, 5] = 1
+    tm[1, 4, 6] = 1
+    tm[1, 4, 7] = 1
+    tm[1, 4, 8] = 1
+    tm[1, 5, 9] = 1
+    tm[1, 1, 10] = 1
+    # S2
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  1  1  1  0  0  0  0  0  0  1
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  0  0  0  1  1  1  1  1  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[2, 4, 0] = 1
+    tm[2, 2, 1] = 1
+    tm[2, 2, 2] = 1
+    tm[2, 2, 3] = 1
+    tm[2, 4, 4] = 1
+    tm[2, 4, 5] = 1
+    tm[2, 4, 6] = 1
+    tm[2, 4, 7] = 1
+    tm[2, 4, 8] = 1
+    tm[2, 5, 9] = 1
+    tm[2, 2, 10] = 1
+    # S3
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  1  1  1  1  0  1  1  1  0  1
+    # G  1  0  0  0  0  1  0  0  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[3, 4, 0] = 1
+    tm[3, 3, 1] = 1
+    tm[3, 3, 2] = 1
+    tm[3, 3, 3] = 1
+    tm[3, 3, 4] = 1
+    tm[3, 4, 5] = 1
+    tm[3, 3, 6] = 1
+    tm[3, 3, 7] = 1
+    tm[3, 3, 8] = 1
+    tm[3, 5, 9] = 1
+    tm[3, 3, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    tm[4, 4, :] = 1
+    # T
+    tm[5, 5, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [-1, -1, -1, -1, 0, -1000]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
 
 def make_subgoals_delivery(env):
     initial_state = env.get_state()
@@ -179,6 +622,247 @@ def make_taskspec_delivery():
 
     return task_spec, safety_props
 
+# sequential task
+# F(a & F (b & (F c & F h))) & G ! o
+def make_taskspec_delivery2():
+    # go to A, then B, then C, then HOME
+    spec = 'F(a & F (b & (F c & F h))) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 5
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  1  1  1  1  0  1  1  1  0  1
+    # 1  1  0  0  0  0  1  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 1] = 1
+    tm[0, 0, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 0, 4] = 1
+    tm[0, 1, 5] = 1
+    tm[0, 0, 6] = 1
+    tm[0, 0, 7] = 1
+    tm[0, 0, 8] = 1
+    tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  0  1  1  1  1  0  1  1  0  1
+    # 2  0  1  0  0  0  0  1  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    tm[1, 1, 0] = 1
+    tm[1, 2, 1] = 1
+    tm[1, 1, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 1, 4] = 1
+    tm[1, 1, 5] = 1
+    tm[1, 2, 6] = 1
+    tm[1, 1, 7] = 1
+    tm[1, 1, 8] = 1
+    tm[1, 1, 10] = 1
+    # S2
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  1  1  0  1  1  1  1  0  1  0  1
+    # 3  0  0  1  0  0  0  0  1  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
+    tm[2, 2, 0] = 1
+    tm[2, 2, 1] = 1
+    tm[2, 3, 2] = 1
+    tm[2, 2, 3] = 1
+    tm[2, 2, 4] = 1
+    tm[2, 2, 5] = 1
+    tm[2, 2, 6] = 1
+    tm[2, 3, 7] = 1
+    tm[2, 2, 8] = 1
+    tm[2, 2, 10] = 1
+    # S3
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  1  1  1  0  1  1  1  1  0  0  1
+    # G  0  0  0  1  0  0  0  0  1  0  0
+    tm[3, 3, 0] = 1
+    tm[3, 3, 1] = 1
+    tm[3, 3, 2] = 1
+    tm[3, 4, 3] = 1
+    tm[3, 3, 4] = 1
+    tm[3, 3, 5] = 1
+    tm[3, 3, 6] = 1
+    tm[3, 3, 7] = 1
+    tm[3, 4, 8] = 1
+    tm[3, 3, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    tm[4, 4, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [1, 1, 1, 1, 0]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
+
+# OR task
+# F (a | b) & G ! o
+def make_taskspec_delivery3():
+    # go to A, then B, then C, then HOME
+    spec = 'F (a | b) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 2
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  1  1  1  0  0  1  1  0  1
+    # G  1  1  0  0  0  1  1  0  0  0  0
+    tm[0, 1, 0] = 1
+    tm[0, 1, 1] = 1
+    tm[0, 0, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 0, 4] = 1
+    tm[0, 1, 5] = 1
+    tm[0, 1, 6] = 1
+    tm[0, 0, 7] = 1
+    tm[0, 0, 8] = 1
+    tm[0, 0, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    tm[1, 1, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [1, 0]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
+
+# IF task
+# (F (c & F a) & G ! can) | (F a & F can)
+def make_taskspec_delivery4():
+    # go to A, then B, then C, then HOME
+    spec = '(F (c & F a) & G ! can) | (F a & F can) & G ! o'
+
+    # prop order:
+    # a b c home can cana canb canc canh o e
+
+    nF = 5
+    nP = 11
+    tm = np.zeros((nF, nF, nP))
+
+    # S0
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  1  0  1  0  0  0  0  0  0  1
+    # 1  1  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  1  0  1  0  1  1  1  0  0
+    # G  0  0  0  0  0  1  0  0  0  0  0
+    tm[0, 1, 0] = 1
+    tm[0, 0, 1] = 1
+    tm[0, 3, 2] = 1
+    tm[0, 0, 3] = 1
+    tm[0, 3, 4] = 1
+    tm[0, 4, 5] = 1
+    tm[0, 3, 6] = 1
+    tm[0, 3, 7] = 1
+    tm[0, 3, 8] = 1
+    tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  1  0  1  0  0  0  0  0  0  1
+    # 2  0  0  1  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  0  0  0  0  1  1  1  1  1  0  0
+    tm[1, 1, 0] = 1
+    tm[1, 1, 1] = 1
+    tm[1, 2, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 4, 4] = 1
+    tm[1, 4, 5] = 1
+    tm[1, 4, 6] = 1
+    tm[1, 4, 7] = 1
+    tm[1, 4, 8] = 1
+    tm[1, 1, 10] = 1
+    # S2
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  1  1  1  0  0  0  0  0  0  1
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  0  0  0  1  1  1  1  1  0  0
+    tm[2, 4, 0] = 1
+    tm[2, 2, 1] = 1
+    tm[2, 2, 2] = 1
+    tm[2, 2, 3] = 1
+    tm[2, 4, 4] = 1
+    tm[2, 4, 5] = 1
+    tm[2, 4, 6] = 1
+    tm[2, 4, 7] = 1
+    tm[2, 4, 8] = 1
+    tm[2, 2, 10] = 1
+    # S3
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  1  1  1  1  0  1  1  1  0  1
+    # G  1  0  0  0  0  1  0  0  0  0  0
+    tm[3, 4, 0] = 1
+    tm[3, 3, 1] = 1
+    tm[3, 3, 2] = 1
+    tm[3, 3, 3] = 1
+    tm[3, 3, 4] = 1
+    tm[3, 4, 5] = 1
+    tm[3, 3, 6] = 1
+    tm[3, 3, 7] = 1
+    tm[3, 3, 8] = 1
+    tm[3, 3, 10] = 1
+    # G
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
+    # 2  0  0  0  0  0  0  0  0  0  0  0
+    # 3  0  0  0  0  0  0  0  0  0  0  0
+    # G  1  1  1  1  1  1  1  1  1  1  1
+    tm[4, 4, :] = 1
+
+    # remember that these are multiplicative
+    task_state_costs = [1, 1, 1, 1, 0]
+
+    safety_props = [4, 5, 6, 7, 8, 9]
+    task_spec = TaskSpec(spec, tm, task_state_costs)
+
+    return task_spec, safety_props
+
+
 def make_safetyspecs_delivery():
 
     ##### SAFETY SPEC A #####
@@ -258,50 +942,62 @@ def make_safetyspecs_delivery():
 
     return safety_specs
 
-def test_options(sim, task_spec=None):
+def run_experiment(sim, exp_num=1):
     sim.reset()
 
-    task_spec, safety_props = make_taskspec_delivery()
+    make_taskspecs = [make_taskspec_delivery, make_taskspec_delivery2, make_taskspec_delivery3, make_taskspec_delivery4]
+    make_taskspecs_rm = [make_taskspec_delivery_rm, make_taskspec_delivery2_rm, make_taskspec_delivery3_rm, make_taskspec_delivery4_rm]
+    task_spec_and_safety_props = [make_taskspec() for make_taskspec in make_taskspecs] 
+    task_spec_and_safety_props_rm = [make_taskspec() for make_taskspec in make_taskspecs_rm] 
+
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 
+    num_episodes = 1601
+    recording_frequency = 20
 
-    policy = VIMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env)
-    # policy.make_policy(sim.env, task_spec)
-    f = 0
-    goal_state = 6
-    max_steps_in_option = 30
+    rm_results = []
+    for i, (task_spec_rm, safety_props) in enumerate(task_spec_and_safety_props_rm):
+        print("--------- Training RMs ---------")
+        rm_policy = RewardMachineMetaPolicy(subgoals, task_spec_rm, safety_props, sim.env,
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
+        rm_results.append(rm_policy.get_results())
 
-    for i in range(5):
-        sim.render(mode=render_mode)
-        camera = sim.render()
-        option = policy.get_option(sim.env, f)
-        f_prev = f
-        steps_in_option = 0
-        while not policy.is_terminated(sim.env, option) and f_prev == f and steps_in_option < max_steps_in_option:
-            action = policy.get_action(sim.env, option)
-            obs = sim.step(action)
-            f_prev = f
-            f = policy.get_fsa_state(sim.env, f)
-            print("option: {} | FSA state: {} | state: {}".format(option, f, sim.env.get_state()))
-            camera = sim.render()
-            steps_in_option += 1
-            if f == 1:
-                if np.random.uniform() < 0.0:
-                    sim.env.prop_dict['canceled'].value = True
-                else:
-                    sim.env.prop_dict['canceled'].value = False
-            else:
-                sim.env.prop_dict['canceled'].value = False
-        if f == goal_state:
-            break
-        
+    lof_results = []
+    flat_results = []
+    fsa_results = []
+    for i, (task_spec, safety_props) in enumerate(task_spec_and_safety_props):
+        print("######## TASK SPEC {} ##########".format(i+1))
+        print("--------- Training LOF ---------")
+        lof_policy = QLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
+        lof_results.append(lof_policy.get_results())
 
-    if render_mode == 'anim':
-        animation = camera.animate()
-        animation.save(sim.env.name + '_satisfaction.gif', writer='imagemagick')
-    return 0
+        print("---- Training Flat Options -----")
+        flat_policy = FlatQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
+        flat_results.append(flat_policy.get_results())
+
+        print("----- Training FSA Options -----")
+        fsa_policy = FSAQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
+        fsa_results.append(fsa_policy.get_results())
+
+    save_dataset('satisfaction', exp_num, lof_results, flat_results, fsa_results, rm_results)   
+
+def save_dataset(exp_name, exp_num, lof_results, flat_results, fsa_results, rm_results):
+    directory = Path(__file__).parent.parent / 'dataset' / exp_name
+    # if directory doesn't exist, create it
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    file_name = 'results_' + str(exp_num) + '.npz'
+    path_name = directory / file_name
+    np.savez(path_name, lof=lof_results, flat=flat_results, fsa=fsa_results, rm=rm_results)
+
+def run_multiple_experiments(sim, num_exp=10):
+    for i in range(num_exp):
+        print("$$$$$$$$ EXP NUMBER {} $$$$$$$$$$".format(i))
+        run_experiment(sim, exp_num=i)
 
 if __name__ == '__main__':
     sim = DeliverySim()
-    test_options(sim)
+    run_multiple_experiments(sim)

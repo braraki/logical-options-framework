@@ -55,9 +55,18 @@ class RewardMachinePolicy(OptionBase):
 class RewardMachineMetaPolicy(MetaPolicyBase):
     # there are NO SAFETY SPECS - everything must be embodied in the task_spec
     def __init__(self, subgoals, task_spec, safety_props, env,
-                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3):
+                 num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
+                 record_training=False, recording_frequency=20):
         super().__init__(subgoals, task_spec, safety_props, None, env,
                          num_episodes, episode_length, gamma, alpha, epsilon)
+
+        self.record_training = record_training
+        self.recording_frequency = recording_frequency
+        if record_training:
+            self.training_steps = []
+            self.training_reward = []
+            self.training_success = []
+            self.training_last_state = []
 
         # state space size
         self.ss_size = np.prod(env.get_full_state_space())
@@ -94,6 +103,25 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
         y = np.random.choice(range(dom[1]))
         return [x, y]
 
+    def record_results(self, i, num_steps, initial_state, env):
+        if i % self.recording_frequency == 0:
+            env.set_state(initial_state)
+            episode_reward, success, final_f = self.evaluate_policy(env)
+            if self.record_training:
+                training_steps = i * self.episode_length + (num_steps - 1)
+                self.training_reward.append(episode_reward)
+                self.training_steps.append(training_steps)
+                self.training_success.append(success)
+                self.training_last_state.append(final_f)
+            print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
+
+    def get_results(self):
+        if self.record_training:
+            return {'reward': self.training_reward, 'steps': self.training_steps,
+                    'success': self.training_success, 'last_state': self.training_last_state}
+        else:
+            return None
+
     def q_learning(self, env):
         num_policies = self.task_spec.nF
 
@@ -126,17 +154,14 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
 
                 num_steps += 1
 
-            if i % 20 == 0:
-                env.set_state(initial_state)
-                episode_reward, success, final_f = self.evaluate_policy(env)
-                print("Episode: {}\t| Reward: {}\t| Success: {} | Final F: {}".format(i, episode_reward, success, final_f))
+            self.record_results(i, num_steps, initial_state, env)
 
         env.set_state(initial_state)
 
     def evaluate_policy(self, env):
         f = 0
-        goal_state = 6
-        trap_state = 7
+        goal_state = self.task_spec.nF - 2
+        trap_state = self.task_spec.nF - 1
 
         reward = 0
         success = False
