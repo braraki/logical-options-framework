@@ -1,3 +1,7 @@
+# this is basically the model-free version of LOF with a TM
+# aka, this version has no TM, just FSA states, and it uses
+# q learning instead of value iteration to learn the high-level policy
+
 import time
 from simulator.rendering import Viewer
 from simulator.delivery import DeliverySim
@@ -36,8 +40,6 @@ def make_subgoals_delivery(env):
 
     return [subgoal_a, subgoal_b, subgoal_c, subgoal_home]
 
-# complex task
-# (F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o
 def make_taskspec_delivery():
     # go to A or B, then C, then HOME, unless C is CANceled in which case just go to A or B then HOME
     spec = '(F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o'
@@ -522,8 +524,8 @@ def test_qlearning(sim, task_spec=None):
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 
-    policy = QLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-    record_training=True, recording_frequency=20, num_episodes=1000)
+    policy = GreedyQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+                                    record_training=True, recording_frequency=20, num_episodes=1000)
 
     results = policy.get_results()
 
@@ -561,7 +563,7 @@ def test_qlearning(sim, task_spec=None):
 
     if render_mode == 'anim':
         animation = camera.animate()
-        animation.save(sim.env.name + '_qlearning.gif', writer='imagemagick')
+        animation.save(sim.env.name + '_qlearning_greedy_options.gif', writer='imagemagick')
     return 0
 
 if __name__ == '__main__':

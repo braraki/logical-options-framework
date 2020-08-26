@@ -362,22 +362,23 @@ def make_taskspec_delivery2():
     return task_spec, safety_props
 
 # OR task
-# F (a | b) & G ! o
+# F ((a | b) & F c) & G ! o
 def make_taskspec_delivery3():
     # go to A, then B, then C, then HOME
-    spec = 'F (a | b) & G ! o'
+    spec = 'F ((a | b) & F c) & G ! o'
 
     # prop order:
     # a b c home can cana canb canc canh o e
 
-    nF = 2
+    nF = 3
     nP = 11
     tm = np.zeros((nF, nF, nP))
 
     # S0
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  1  1  1  0  0  1  1  0  1
-    # G  1  1  0  0  0  1  1  0  0  0  0
+    # 1  1  1  0  0  0  1  1  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
     tm[0, 1, 0] = 1
     tm[0, 1, 1] = 1
     tm[0, 0, 2] = 1
@@ -388,17 +389,30 @@ def make_taskspec_delivery3():
     tm[0, 0, 7] = 1
     tm[0, 0, 8] = 1
     tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  1  0  1  1  1  1  0  1  0  1
+    # G  0  0  1  0  0  0  0  1  0  0  0
+    tm[1, 1, 0] = 1
+    tm[1, 1, 1] = 1
+    tm[1, 2, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 1, 4] = 1
+    tm[1, 1, 5] = 1
+    tm[1, 1, 6] = 1
+    tm[1, 2, 7] = 1
+    tm[1, 1, 8] = 1
+    tm[1, 1, 10] = 1
     # G
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  0  0  0  0  0  0  0  0  0
     # 1  0  0  0  0  0  0  0  0  0  0  0
-    # 2  0  0  0  0  0  0  0  0  0  0  0
-    # 3  0  0  0  0  0  0  0  0  0  0  0
     # G  1  1  1  1  1  1  1  1  1  1  1
-    tm[1, 1, :] = 1
+    tm[2, 2, :] = 1
 
     # remember that these are multiplicative
-    task_state_costs = [1, 0]
+    task_state_costs = [1, 1, 0]
 
     safety_props = [4, 5, 6, 7, 8, 9]
     task_spec = TaskSpec(spec, tm, task_state_costs)
@@ -506,7 +520,7 @@ def make_taskspec_delivery4():
 def test_qlearning(sim, task_spec=None):
     sim.reset()
 
-    task_spec, safety_props = make_taskspec_delivery4()
+    task_spec, safety_props = make_taskspec_delivery3()
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 

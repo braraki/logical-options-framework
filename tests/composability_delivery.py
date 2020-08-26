@@ -2,8 +2,8 @@ import time
 from simulator.rendering import Viewer
 from simulator.delivery import DeliverySim
 from simulator.options import *
+from simulator.reward_machines import *
 from celluloid import Camera
-import matplotlib.pyplot as plt
 
 # human: show plots
 # anim: don't show plots but save a gif
@@ -36,8 +36,6 @@ def make_subgoals_delivery(env):
 
     return [subgoal_a, subgoal_b, subgoal_c, subgoal_home]
 
-# complex task
-# (F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o
 def make_taskspec_delivery():
     # go to A or B, then C, then HOME, unless C is CANceled in which case just go to A or B then HOME
     spec = '(F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o'
@@ -181,85 +179,6 @@ def make_taskspec_delivery():
     task_spec = TaskSpec(spec, tm, task_state_costs)
 
     return task_spec, safety_props
-
-def make_safetyspecs_delivery():
-
-    ##### SAFETY SPEC A #####
-
-    spec_a = 'G!o & Fa'
-    nP = 7
-
-    nF_a = 3
-    tm_a = np.zeros((nF_a, nF_a, nP))
-    # S1
-    tm_a[0, 1, 0] = 1
-    tm_a[0, 0, 1] = 1
-    tm_a[0, 0, 2] = 1
-    tm_a[0, 0, 3] = 1
-    tm_a[0, 0, 4] = 1
-    tm_a[0, 2, 5] = 1
-    tm_a[0, 0, 6] = 1
-    # G
-    tm_a[1, 1, :] = 1
-    # T
-    tm_a[2, 2, :] = 1
-
-    # multiplicative       a   b   c   h   c  ca  cb  cc  ch     o   e
-    safety_prop_costs_a = [0, -1, -1, -1, -1,  0, -1, -1, -1, -1000, -1]
-
-    safety_spec_a = SafetySpec('a', spec_a, tm_a, safety_prop_costs_a)
-
-    ##### SAFETY SPEC B #####
-    spec_b = 'G!o & Fb'
-    nF_b = 3
-    tm_b = np.zeros((nF_b, nF_b, nP))
-    tm_b[0, 0, 0] = 1
-    tm_b[0, 1, 1] = 1
-    tm_b[0, 0, 2] = 1
-    tm_b[0, 0, 3] = 1
-    tm_b[0, 0, 4] = 1
-    tm_b[0, 2, 5] = 1
-    tm_b[0, 0, 6] = 1
-
-    safety_prop_costs_b = [-1, 0, -1, -1, -1, -1, 0, -1, -1, -1000, -1]
-
-    safety_spec_b = SafetySpec('b', spec_b, tm_b, safety_prop_costs_b)
-
-    ##### SAFETY SPEC C #####
-    spec_c = 'G!o & Fc'
-    nF_c = 3
-    tm_c = np.zeros((nF_c, nF_c, nP))
-    tm_c[0, 0, 0] = 1
-    tm_c[0, 0, 1] = 1
-    tm_c[0, 1, 2] = 1
-    tm_c[0, 0, 3] = 1
-    tm_c[0, 0, 4] = 1
-    tm_c[0, 2, 5] = 1
-    tm_c[0, 0, 6] = 1
-
-    safety_prop_costs_c = [-1, -1, 0, -1, -1, -1, -1, 0, -1, -1000, -1]
-
-    safety_spec_c = SafetySpec('c', spec_c, tm_c, safety_prop_costs_c)
-
-    ##### SAFETY SPEC H #####
-    spec_h = 'G!o & Fh'
-    nF_h = 3
-    tm_h = np.zeros((nF_h, nF_h, nP))
-    tm_h[0, 0, 0] = 1
-    tm_h[0, 0, 1] = 1
-    tm_h[0, 0, 2] = 1
-    tm_h[0, 1, 3] = 1
-    tm_h[0, 0, 4] = 1
-    tm_h[0, 2, 5] = 1
-    tm_h[0, 0, 6] = 1
-
-    safety_prop_costs_h = [-1, -1, -1, 0, -1, -1, -1, -1, 0, -1000, -1]
-
-    safety_spec_h = SafetySpec('h', spec_h, tm_h, safety_prop_costs_h)
-
-    safety_specs = [safety_spec_a, safety_spec_b, safety_spec_c, safety_spec_h]
-
-    return safety_specs
 
 # sequential task
 # F(a & F (b & (F c & F h))) & G ! o
@@ -515,55 +434,146 @@ def make_taskspec_delivery4():
 
     return task_spec, safety_props
 
-def test_qlearning(sim, task_spec=None):
+
+def make_safetyspecs_delivery():
+
+    ##### SAFETY SPEC A #####
+
+    spec_a = 'G!o & Fa'
+    nP = 7
+
+    nF_a = 3
+    tm_a = np.zeros((nF_a, nF_a, nP))
+    # S1
+    tm_a[0, 1, 0] = 1
+    tm_a[0, 0, 1] = 1
+    tm_a[0, 0, 2] = 1
+    tm_a[0, 0, 3] = 1
+    tm_a[0, 0, 4] = 1
+    tm_a[0, 2, 5] = 1
+    tm_a[0, 0, 6] = 1
+    # G
+    tm_a[1, 1, :] = 1
+    # T
+    tm_a[2, 2, :] = 1
+
+    # multiplicative       a   b   c   h   c  ca  cb  cc  ch     o   e
+    safety_prop_costs_a = [0, -1, -1, -1, -1,  0, -1, -1, -1, -1000, -1]
+
+    safety_spec_a = SafetySpec('a', spec_a, tm_a, safety_prop_costs_a)
+
+    ##### SAFETY SPEC B #####
+    spec_b = 'G!o & Fb'
+    nF_b = 3
+    tm_b = np.zeros((nF_b, nF_b, nP))
+    tm_b[0, 0, 0] = 1
+    tm_b[0, 1, 1] = 1
+    tm_b[0, 0, 2] = 1
+    tm_b[0, 0, 3] = 1
+    tm_b[0, 0, 4] = 1
+    tm_b[0, 2, 5] = 1
+    tm_b[0, 0, 6] = 1
+
+    safety_prop_costs_b = [-1, 0, -1, -1, -1, -1, 0, -1, -1, -1000, -1]
+
+    safety_spec_b = SafetySpec('b', spec_b, tm_b, safety_prop_costs_b)
+
+    ##### SAFETY SPEC C #####
+    spec_c = 'G!o & Fc'
+    nF_c = 3
+    tm_c = np.zeros((nF_c, nF_c, nP))
+    tm_c[0, 0, 0] = 1
+    tm_c[0, 0, 1] = 1
+    tm_c[0, 1, 2] = 1
+    tm_c[0, 0, 3] = 1
+    tm_c[0, 0, 4] = 1
+    tm_c[0, 2, 5] = 1
+    tm_c[0, 0, 6] = 1
+
+    safety_prop_costs_c = [-1, -1, 0, -1, -1, -1, -1, 0, -1, -1000, -1]
+
+    safety_spec_c = SafetySpec('c', spec_c, tm_c, safety_prop_costs_c)
+
+    ##### SAFETY SPEC H #####
+    spec_h = 'G!o & Fh'
+    nF_h = 3
+    tm_h = np.zeros((nF_h, nF_h, nP))
+    tm_h[0, 0, 0] = 1
+    tm_h[0, 0, 1] = 1
+    tm_h[0, 0, 2] = 1
+    tm_h[0, 1, 3] = 1
+    tm_h[0, 0, 4] = 1
+    tm_h[0, 2, 5] = 1
+    tm_h[0, 0, 6] = 1
+
+    safety_prop_costs_h = [-1, -1, -1, 0, -1, -1, -1, -1, 0, -1000, -1]
+
+    safety_spec_h = SafetySpec('h', spec_h, tm_h, safety_prop_costs_h)
+
+    safety_specs = [safety_spec_a, safety_spec_b, safety_spec_c, safety_spec_h]
+
+    return safety_specs
+
+def run_experiment(sim, exp_num=1):
     sim.reset()
 
-    task_spec, safety_props = make_taskspec_delivery()
+    training_task_name = 'complex'
+    training_taskspec, safety_props = make_taskspec_delivery()
+
+    task_names = ['sequential', 'OR', 'IF']
+    make_taskspecs = [make_taskspec_delivery2, make_taskspec_delivery3, make_taskspec_delivery4]
+    task_spec_and_safety_props = [make_taskspec() for make_taskspec in make_taskspecs] 
+
+
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 
-    policy = QLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-    record_training=True, recording_frequency=20, num_episodes=1000)
+    num_episodes = 1001
+    recording_frequency = 20
 
-    results = policy.get_results()
+    # train the options/policy for a single task
+    print("--------- Training LOF on Task {} ---------".format(training_task_name))
+    lof_policy = QLearningMetaPolicy(subgoals, training_taskspec, safety_props, safety_specs, sim.env,
+            record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
 
-    plt.plot(results['steps'], results['reward'])
-    plt.savefig('results.png')
+    print("----- Training FSA Options -----")
+    fsa_policy = FSAQLearningMetaPolicy(subgoals, training_taskspec, safety_props, safety_specs, sim.env,
+            record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
 
-    f = 0
-    goal_state = task_spec.nF - 1
-    max_steps_in_option = 30
+    print("--- Training Greedy Options ----")
+    greedy_policy = GreedyQLearningMetaPolicy(subgoals, training_taskspec, safety_props, safety_specs, sim.env,
+            record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
 
-    for i in range(5):
-        sim.render(mode=render_mode)
-        camera = sim.render()
-        option = policy.get_option(sim.env, f)
-        f_prev = f
-        steps_in_option = 0
-        while not policy.is_terminated(sim.env, option) and f_prev == f and steps_in_option < max_steps_in_option:
-            action = policy.get_action(sim.env, option)
-            obs = sim.step(action)
-            f_prev = f
-            f = policy.get_fsa_state(sim.env, f)
-            print("option: {} | FSA state: {} | state: {}".format(option, f, sim.env.get_state()))
-            camera = sim.render()
-            steps_in_option += 1
-            if f == 1:
-                if np.random.uniform() < 1.0:
-                    sim.env.prop_dict['canceled'].value = True
-                else:
-                    sim.env.prop_dict['canceled'].value = False
-            else:
-                sim.env.prop_dict['canceled'].value = False
-        if f == goal_state:
-            break
-        
+    # test the trained options on other tasks
+    for i, task_name in enumerate(task_names):
+        task_spec, safety_props = task_spec_and_safety_props[i]
 
-    if render_mode == 'anim':
-        animation = camera.animate()
-        animation.save(sim.env.name + '_qlearning.gif', writer='imagemagick')
-    return 0
+        print("######## TASK SPEC {} ##########".format(task_name))
+        print("--------- LOF Results ---------")
+        reward, success, final_f = lof_policy.evaluate_policy(sim.env, 0, task_spec=task_spec)
+        print("reward: {} | success: {} | final f: {}".format(reward, success, final_f))
+
+        print("----- Training FSA Options -----")
+        reward, success, final_f = fsa_policy.evaluate_policy(sim.env, 0, task_spec=task_spec)
+        print("reward: {} | success: {} | final f: {}".format(reward, success, final_f))
+
+        print("--- Training Greedy Options ----")
+        reward, success, final_f = greedy_policy.evaluate_policy(sim.env, 0, task_spec=task_spec)
+        print("reward: {} | success: {} | final f: {}".format(reward, success, final_f))
+
+def save_dataset(exp_name, method_name, task_name, exp_num, results):
+    directory = Path(__file__).parent.parent / 'dataset' / exp_name / method_name /task_name
+    # if directory doesn't exist, create it
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    file_name = str(exp_num) + '.npz'
+    path_name = directory / file_name
+    np.savez(path_name, results)
+
+def run_multiple_experiments(sim, num_exp=10):
+    for i in range(num_exp):
+        print("$$$$$$$$ EXP NUMBER {} $$$$$$$$$$".format(i))
+        run_experiment(sim, exp_num=i)
 
 if __name__ == '__main__':
     sim = DeliverySim()
-    test_qlearning(sim)
+    run_experiment(sim)

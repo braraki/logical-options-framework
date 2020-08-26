@@ -56,10 +56,11 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
     # there are NO SAFETY SPECS - everything must be embodied in the task_spec
     def __init__(self, subgoals, task_spec, safety_props, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
-                 record_training=False, recording_frequency=20):
+                 record_training=False, recording_frequency=20, experiment_num=0):
         super().__init__(subgoals, task_spec, safety_props, None, env,
                          num_episodes, episode_length, gamma, alpha, epsilon)
 
+        self.experiment_num = experiment_num
         self.record_training = record_training
         self.recording_frequency = recording_frequency
         if record_training:
@@ -106,7 +107,7 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
     def record_results(self, i, num_steps, initial_state, env):
         if i % self.recording_frequency == 0:
             env.set_state(initial_state)
-            episode_reward, success, final_f = self.evaluate_policy(env)
+            episode_reward, success, final_f = self.evaluate_policy(env, i / self.recording_frequency, self.experiment_num)
             if self.record_training:
                 training_steps = i * self.episode_length + (num_steps - 1)
                 self.training_reward.append(episode_reward)
@@ -158,7 +159,7 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
 
         env.set_state(initial_state)
 
-    def evaluate_policy(self, env):
+    def evaluate_policy(self, env, episode_num, experiment_num=0):
         f = 0
         goal_state = self.task_spec.nF - 2
         trap_state = self.task_spec.nF - 1
@@ -167,8 +168,11 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
         success = False
 
         for i in range(100):
+            self.if_experiment_modification(env, f, experiment_num, episode_num)
+
             reward += self.task_spec.task_state_costs[f]
             action = self.get_action(env, f)
+
             obs = env.step(action)
             f = self.get_fsa_state(env, f)
 
@@ -184,10 +188,32 @@ class RewardMachineMetaPolicy(MetaPolicyBase):
                 success = True
                 break
             elif f == trap_state:
+                reward += self.task_spec.task_state_costs[f]
                 break
             # reward += self.task_spec.task_state_costs[f]
 
         return reward, success, f
+
+    def if_experiment_modification(self, env, f, experiment_num, episode_num):
+        evens = 0
+        if experiment_num % 2 == 0:
+            evens = 1
+        if self.task_spec.spec == '(F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o':
+            if f == 0:
+                if episode_num % 2 == evens:
+                    env.prop_dict['canceled'].value = True
+                else:
+                    env.prop_dict['canceled'].value = False
+            else:
+                env.prop_dict['canceled'].value = False
+        elif self.task_spec.spec == '(F (c & F a) & G ! can) | (F a & F can) & G ! o':
+            if f == 0:
+                if episode_num % 2 == evens:
+                    env.prop_dict['canceled'].value = True
+                else:
+                    env.prop_dict['canceled'].value = False
+            else:
+                env.prop_dict['canceled'].value = False
 
     def get_action(self, env, f):
         return self.policies[f].get_action(env)

@@ -298,22 +298,23 @@ def make_taskspec_delivery2_rm():
     return task_spec, safety_props
 
 # OR task
-# F (a | b) & G ! o
+# F ((a | b) & F c) & G ! o
 def make_taskspec_delivery3_rm():
     # go to A, then B, then C, then HOME
-    spec = 'F (a | b) & G ! o'
+    spec = 'F ((a | b) & F c) & G ! o'
 
     # prop order:
     # a b c home can cana canb canc canh o e
 
-    nF = 3
+    nF = 4
     nP = 11
     tm = np.zeros((nF, nF, nP))
 
     # S0
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  1  1  1  0  0  1  1  0  1
-    # G  1  1  0  0  0  1  1  0  0  0  0
+    # 1  1  1  0  0  0  1  1  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
     # T  0  0  0  0  0  0  0  0  0  1  0
     tm[0, 1, 0] = 1
     tm[0, 1, 1] = 1
@@ -324,23 +325,42 @@ def make_taskspec_delivery3_rm():
     tm[0, 1, 6] = 1
     tm[0, 0, 7] = 1
     tm[0, 0, 8] = 1
-    tm[0, 2, 9] = 1
+    tm[0, 3, 9] = 1
     tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  1  0  1  1  1  1  0  1  0  1
+    # G  0  0  1  0  0  0  0  1  0  0  0
+    # T  0  0  0  0  0  0  0  0  0  1  0
+    tm[1, 1, 0] = 1
+    tm[1, 1, 1] = 1
+    tm[1, 2, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 1, 4] = 1
+    tm[1, 1, 5] = 1
+    tm[1, 1, 6] = 1
+    tm[1, 2, 7] = 1
+    tm[1, 1, 8] = 1
+    tm[1, 3, 9] = 1
+    tm[1, 1, 10] = 1
     # G
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
     # G  1  1  1  1  1  1  1  1  1  1  1
     # T  0  0  0  0  0  0  0  0  0  0  0
-    tm[1, 1, :] = 1
+    tm[2, 2, :] = 1
     # T
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  0  0  0  0  0  0  0  0  0  0  0
     # G  0  0  0  0  0  0  0  0  0  0  0
     # T  1  1  1  1  1  1  1  1  1  1  1
-    tm[2, 2, :] = 1
+    tm[3, 3, :] = 1
 
     # remember that these are multiplicative
-    task_state_costs = [-1, 0, -1000]
+    task_state_costs = [-1, -1, 0, -1000]
 
     safety_props = [4, 5, 6, 7, 8, 9]
     task_spec = TaskSpec(spec, tm, task_state_costs)
@@ -721,22 +741,23 @@ def make_taskspec_delivery2():
     return task_spec, safety_props
 
 # OR task
-# F (a | b) & G ! o
+# F ((a | b) & F c) & G ! o
 def make_taskspec_delivery3():
     # go to A, then B, then C, then HOME
-    spec = 'F (a | b) & G ! o'
+    spec = 'F ((a | b) & F c) & G ! o'
 
     # prop order:
     # a b c home can cana canb canc canh o e
 
-    nF = 2
+    nF = 3
     nP = 11
     tm = np.zeros((nF, nF, nP))
 
     # S0
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  1  1  1  0  0  1  1  0  1
-    # G  1  1  0  0  0  1  1  0  0  0  0
+    # 1  1  1  0  0  0  1  1  0  0  0  0
+    # G  0  0  0  0  0  0  0  0  0  0  0
     tm[0, 1, 0] = 1
     tm[0, 1, 1] = 1
     tm[0, 0, 2] = 1
@@ -747,17 +768,30 @@ def make_taskspec_delivery3():
     tm[0, 0, 7] = 1
     tm[0, 0, 8] = 1
     tm[0, 0, 10] = 1
+    # S1
+    #    a  b  c  h  c ca cb cc ch  o  e
+    # 0  0  0  0  0  0  0  0  0  0  0  0
+    # 1  1  1  0  1  1  1  1  0  1  0  1
+    # G  0  0  1  0  0  0  0  1  0  0  0
+    tm[1, 1, 0] = 1
+    tm[1, 1, 1] = 1
+    tm[1, 2, 2] = 1
+    tm[1, 1, 3] = 1
+    tm[1, 1, 4] = 1
+    tm[1, 1, 5] = 1
+    tm[1, 1, 6] = 1
+    tm[1, 2, 7] = 1
+    tm[1, 1, 8] = 1
+    tm[1, 1, 10] = 1
     # G
     #    a  b  c  h  c ca cb cc ch  o  e
     # 0  0  0  0  0  0  0  0  0  0  0  0
     # 1  0  0  0  0  0  0  0  0  0  0  0
-    # 2  0  0  0  0  0  0  0  0  0  0  0
-    # 3  0  0  0  0  0  0  0  0  0  0  0
     # G  1  1  1  1  1  1  1  1  1  1  1
-    tm[1, 1, :] = 1
+    tm[2, 2, :] = 1
 
     # remember that these are multiplicative
-    task_state_costs = [1, 0]
+    task_state_costs = [1, 1, 0]
 
     safety_props = [4, 5, 6, 7, 8, 9]
     task_spec = TaskSpec(spec, tm, task_state_costs)
@@ -945,8 +979,12 @@ def make_safetyspecs_delivery():
 def run_experiment(sim, exp_num=1):
     sim.reset()
 
-    make_taskspecs = [make_taskspec_delivery, make_taskspec_delivery2, make_taskspec_delivery3, make_taskspec_delivery4]
-    make_taskspecs_rm = [make_taskspec_delivery_rm, make_taskspec_delivery2_rm, make_taskspec_delivery3_rm, make_taskspec_delivery4_rm]
+    # task_names = ['complex', 'sequential', 'OR', 'IF']
+    task_names = ['complex']
+    # make_taskspecs = [make_taskspec_delivery, make_taskspec_delivery2, make_taskspec_delivery3, make_taskspec_delivery4]
+    make_taskspecs = [make_taskspec_delivery]
+    # make_taskspecs_rm = [make_taskspec_delivery_rm, make_taskspec_delivery2_rm, make_taskspec_delivery3_rm, make_taskspec_delivery4_rm]
+    make_taskspecs_rm = [make_taskspec_delivery_rm]
     task_spec_and_safety_props = [make_taskspec() for make_taskspec in make_taskspecs] 
     task_spec_and_safety_props_rm = [make_taskspec() for make_taskspec in make_taskspecs_rm] 
 
@@ -956,42 +994,48 @@ def run_experiment(sim, exp_num=1):
     num_episodes = 1601
     recording_frequency = 20
 
-    rm_results = []
-    for i, (task_spec_rm, safety_props) in enumerate(task_spec_and_safety_props_rm):
+    for i, task_name in enumerate(task_names):
+        task_spec_rm, safety_props = task_spec_and_safety_props_rm[i]
         print("--------- Training RMs ---------")
         rm_policy = RewardMachineMetaPolicy(subgoals, task_spec_rm, safety_props, sim.env,
-                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
-        rm_results.append(rm_policy.get_results())
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes, experiment_num=exp_num)
+        save_dataset('satisfaction', 'rm', task_name, exp_num, rm_policy.get_results())
 
-    lof_results = []
-    flat_results = []
-    fsa_results = []
-    for i, (task_spec, safety_props) in enumerate(task_spec_and_safety_props):
+    for i, task_name in enumerate(task_names):
+        task_spec, safety_props = task_spec_and_safety_props[i]
+
         print("######## TASK SPEC {} ##########".format(i+1))
         print("--------- Training LOF ---------")
         lof_policy = QLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
-        lof_results.append(lof_policy.get_results())
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes, experiment_num=exp_num)
+        # lof_results.append(lof_policy.get_results())
+        save_dataset('satisfaction', 'lof', task_name, exp_num, lof_policy.get_results())
 
         print("---- Training Flat Options -----")
         flat_policy = FlatQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
-        flat_results.append(flat_policy.get_results())
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes, experiment_num=exp_num)
+        # flat_results.append(flat_policy.get_results())
+        save_dataset('satisfaction', 'flat', task_name, exp_num, flat_policy.get_results())
 
         print("----- Training FSA Options -----")
         fsa_policy = FSAQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes)
-        fsa_results.append(fsa_policy.get_results())
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes, experiment_num=exp_num)
+        # fsa_results.append(fsa_policy.get_results())
+        save_dataset('satisfaction', 'fsa', task_name, exp_num, fsa_policy.get_results())
 
-    save_dataset('satisfaction', exp_num, lof_results, flat_results, fsa_results, rm_results)   
+        print("--- Training Greedy Options ----")
+        greedy_policy = GreedyQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+                record_training=True, recording_frequency=recording_frequency, num_episodes=num_episodes, experiment_num=exp_num)
+        # fsa_results.append(fsa_policy.get_results())
+        save_dataset('satisfaction', 'greedy', task_name, exp_num, greedy_policy.get_results())
 
-def save_dataset(exp_name, exp_num, lof_results, flat_results, fsa_results, rm_results):
-    directory = Path(__file__).parent.parent / 'dataset' / exp_name
+def save_dataset(exp_name, method_name, task_name, exp_num, results):
+    directory = Path(__file__).parent.parent / 'dataset' / exp_name / method_name /task_name
     # if directory doesn't exist, create it
     Path(directory).mkdir(parents=True, exist_ok=True)
-    file_name = 'results_' + str(exp_num) + '.npz'
+    file_name = str(exp_num) + '.npz'
     path_name = directory / file_name
-    np.savez(path_name, lof=lof_results, flat=flat_results, fsa=fsa_results, rm=rm_results)
+    np.savez(path_name, results)
 
 def run_multiple_experiments(sim, num_exp=10):
     for i in range(num_exp):

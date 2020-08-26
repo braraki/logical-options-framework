@@ -2,93 +2,160 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-def load_dataset(exp_name, exp_num):
-    directory = Path(__file__).parent.parent / 'dataset' / exp_name
+# def load_dataset(exp_name, exp_num):
+#     directory = Path(__file__).parent.parent / 'dataset' / exp_name
+#     # if directory doesn't exist, create it
+#     Path(directory).mkdir(parents=True, exist_ok=True)
+#     file_name = 'results_' + str(exp_num) + '.npz'
+#     path_name = directory / file_name
+    
+#     data = np.load(path_name, allow_pickle=True)
+
+#     return data
+
+def load_dataset(exp_name, method_name, task_name, exp_num):
+    directory = Path(__file__).parent.parent / 'dataset' / exp_name / method_name / task_name
     # if directory doesn't exist, create it
     Path(directory).mkdir(parents=True, exist_ok=True)
-    file_name = 'results_' + str(exp_num) + '.npz'
+    file_name = str(exp_num) + '.npz'
     path_name = directory / file_name
     
     data = np.load(path_name, allow_pickle=True)
 
-    return data
+    return data['arr_0'][()]
 
-task_reward_bounds = [(-100, -38), (-100, -62), (-100, -7), (-100, -25)]
+task_reward_bounds = [(-100, -26), (-100, -62), (-100, -21), (-100, -19)]
+# task_reward_bounds = [(-100, -38), (-100, -62), (-100, -21), (-100, -25)]
+task_names = ['complex', 'sequential', 'OR', 'IF']
+method_names = ['lof', 'flat', 'fsa', 'rm', 'greedy']
+method_plot_names = ['Logical Options', 'Options', 'Options+FSA', 'Reward Machines', 'Greedy']
+method_colors = ['b', 'y', 'r', 'c', 'g']
 
 num_exp = 10
 
-for i in range(num_exp):
+def get_plot_data_for_task(task_num, task_name):
 
-    data = load_dataset('satisfaction', exp_num=i)
+    method_max_rewards = []
+    method_min_rewards = []
+    method_ave_rewards = []
+    method_steps = []
 
-    lof_results = data['lof'][()]
-    flat_results = data['flat'][()]
-    fsa_results = data['fsa'][()]
-    rm_results = data['rm'][()]
+    for method_name in method_names:
+        first_data = load_dataset('satisfaction', method_name, task_name, 0)
+        num_data = len(first_data['reward'])
+        steps = first_data['steps']
+        method_steps.append(steps)
+        max_rewards = [-np.inf]*num_data
+        min_rewards = [np.inf]*num_data
+        ave_rewards = [0]*num_data
+        for i in range(num_exp):
+            results = load_dataset('satisfaction', method_name, task_name, i)
+            # for each experiment, average reward over the tasks
+            bounds = task_reward_bounds[task_num]
+            for k, reward in enumerate(results['reward']):
+                reward = (reward - bounds[0])/(bounds[1]-bounds[0])
+                if reward > max_rewards[k]:
+                    max_rewards[k] = reward
+                if reward < min_rewards[k]:
+                    min_rewards[k] = reward
 
-    all_results = [lof_results, flat_results, fsa_results, rm_results]
+                ave_rewards[k] += reward / num_exp
 
-    if i == 0:
-        max_lof_rewards = [-np.inf]*len(lof_results[0]['reward'])
-        max_flat_rewards = [-np.inf]*len(flat_results[0]['reward'])
-        max_fsa_rewards = [-np.inf]*len(fsa_results[0]['reward'])
-        max_rm_rewards = [-np.inf]*len(rm_results[0]['reward'])
-        max_rewards = [max_lof_rewards, max_flat_rewards, max_fsa_rewards, max_rm_rewards]
-        min_lof_rewards = [np.inf]*len(lof_results[0]['reward'])
-        min_flat_rewards = [np.inf]*len(flat_results[0]['reward'])
-        min_fsa_rewards = [np.inf]*len(fsa_results[0]['reward'])
-        min_rm_rewards = [np.inf]*len(rm_results[0]['reward'])
-        min_rewards = [min_lof_rewards, min_flat_rewards, min_fsa_rewards, min_rm_rewards]
-        ave_lof_rewards = [0]*len(lof_results[0]['reward'])
-        ave_flat_rewards = [0]*len(flat_results[0]['reward'])
-        ave_fsa_rewards = [0]*len(fsa_results[0]['reward'])
-        ave_rm_rewards = [0]*len(rm_results[0]['reward'])
-        ave_rewards = [ave_lof_rewards, ave_flat_rewards, ave_fsa_rewards, ave_rm_rewards]
+        method_max_rewards.append(max_rewards)
+        method_min_rewards.append(min_rewards)
+        method_ave_rewards.append(ave_rewards)
 
-    ########## Take the results from the 4 tasks and average them ##########
+    return method_ave_rewards, method_min_rewards, method_max_rewards, method_steps
 
-    ave_lof_results = [0]*len(lof_results[0]['reward'])
-    ave_flat_results = [0]*len(flat_results[0]['reward'])
-    ave_fsa_results = [0]*len(fsa_results[0]['reward'])
-    ave_rm_results = [0]*len(rm_results[0]['reward'])
 
-    all_ave_results = [ave_lof_results, ave_flat_results, ave_fsa_results, ave_rm_results]
+def get_plot_data_over_tasks():
 
-    for i, method_results in enumerate(all_results):
-        for task_result, bounds in zip(method_results, task_reward_bounds):
-            for j, reward in enumerate(task_result['reward']):
-                task_result['reward'][j] = (reward - bounds[0])/(bounds[1]-bounds[0])
-                all_ave_results[i][j] += task_result['reward'][j]/len(all_ave_results)
+    method_max_rewards = []
+    method_min_rewards = []
+    method_ave_rewards = []
+    method_steps = []
 
-        # plt.plot(all_results[i][0]['steps'], all_ave_results[i])
+    for method_name in method_names:
+        first_data = load_dataset('satisfaction', method_name, task_names[0], 0)
+        num_data = len(first_data['reward'])
+        steps = first_data['steps']
+        method_steps.append(steps)
+        max_rewards = [-np.inf]*num_data
+        min_rewards = [np.inf]*num_data
+        ave_rewards = [0]*num_data
+        for i in range(num_exp):
+            # for each experiment, average reward over the tasks
+            task_ave_rewards = [0]*num_data
+            for j, task_name in enumerate(task_names):
+                results = load_dataset('satisfaction', method_name, task_name, i)
+                bounds = task_reward_bounds[j]
+                for k, reward in enumerate(results['reward']):
+                    reward = (reward - bounds[0])/(bounds[1]-bounds[0])
+                    task_ave_rewards[k] += reward/len(task_names)
+                
+            for k, reward in enumerate(task_ave_rewards):
+                if reward > max_rewards[k]:
+                    max_rewards[k] = reward
+                if reward < min_rewards[k]:
+                    min_rewards[k] = reward
 
-    for i, method_ave_rewards in enumerate(all_ave_results):
-        for j, ave_reward in enumerate(method_ave_rewards):
-            ave_rewards[i][j] += ave_reward/num_exp
+                ave_rewards[k] += reward / num_exp
 
-            if ave_reward > max_rewards[i][j]:
-                max_rewards[i][j] = ave_reward
-            if ave_reward < min_rewards[i][j]:
-                min_rewards[i][j] = ave_reward
-    
-    
-task_names = ['Logical Options', 'Options', 'Options+FSA', 'Reward Machines']
-task_colors = ['b', 'r', 'y', 'g']
-for i, (task_name, task_color, ave_reward, min_reward, max_reward) in enumerate(zip(task_names, task_colors, ave_rewards, min_rewards, max_rewards)):
-    plt.plot(all_results[i][0]['steps'], ave_reward, color=task_color, label=task_name)    
-    plt.fill_between(all_results[i][0]['steps'], min_reward, max_reward, color=task_color, alpha=0.2)
+        method_max_rewards.append(max_rewards)
+        method_min_rewards.append(min_rewards)
+        method_ave_rewards.append(ave_rewards)
 
-plt.ylim(0, 1)
-plt.legend(loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.2))
-plt.tight_layout()
-plt.savefig('results.png')
+    return method_ave_rewards, method_min_rewards, method_max_rewards, method_steps
 
-# plt.plot(flat_results[0]['steps'], ave_flat_rewards, 'b', label='Options')
-# plt.fill_between(flat_results[0]['steps'], min_flat)
-# plt.plot(fsa_results[0]['steps'], ave_fsa_rewards, 'r', label='Options+FSA')
-# plt.plot(rm_results[0]['steps'], ave_rm_rewards, 'y', label='Reward Machines')
-# plt.plot(lof_results[0]['steps'], ave_lof_rewards, 'g', label='Logical Options')
-# plt.ylim(0, 1)
-# plt.legend(loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.2))
-# plt.tight_layout()
-# plt.savefig('results.png')
+def plot_data_over_tasks():
+    method_ave_rewards, method_min_rewards, \
+        method_max_rewards, method_steps = get_plot_data_over_tasks()
+
+
+    for i, (method_name, method_color, ave_reward, min_reward, max_reward, steps) in enumerate(zip(
+            method_plot_names, method_colors, method_ave_rewards, method_min_rewards, method_max_rewards, method_steps)):
+        plt.plot(steps, ave_reward, color=method_color, label=method_name)    
+        plt.fill_between(steps, min_reward, max_reward, color=method_color, alpha=0.2)
+
+    plt.ylim(0, 1)
+    plt.legend(loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.2))
+    plt.tight_layout()
+    plt.title('Reward Averaged over Tasks')
+    plt.xlim((0, 150000))
+
+    directory = Path(__file__).parent.parent / 'dataset' / 'satisfaction'
+    # if directory doesn't exist, create it
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    file_name = 'results_averaged_over_tasks.png'
+    path_name = directory / file_name
+
+    plt.savefig(path_name)
+
+def plot_data_per_task():
+    for i, task_name in enumerate(task_names):
+        fig = plt.figure()
+        method_ave_rewards, method_min_rewards, \
+        method_max_rewards, method_steps = get_plot_data_for_task(i, task_name)
+
+        for i, (method_name, method_color, ave_reward, min_reward, max_reward, steps) in enumerate(zip(
+                method_plot_names, method_colors, method_ave_rewards, method_min_rewards, method_max_rewards, method_steps)):
+            plt.plot(steps, ave_reward, color=method_color, label=method_name)    
+            plt.fill_between(steps, min_reward, max_reward, color=method_color, alpha=0.2)
+
+        plt.ylim(0, 1)
+        plt.legend(loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.2))
+        plt.tight_layout()
+        plt.title("Reward for {} task".format(task_name))
+        plt.xlim((0, 150000))
+
+        directory = Path(__file__).parent.parent / 'dataset' / 'satisfaction'
+        # if directory doesn't exist, create it
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        file_name = 'results_{}.png'.format(task_name)
+        path_name = directory / file_name
+
+        plt.savefig(path_name)
+
+if __name__ == '__main__':
+    plot_data_over_tasks()
+    plot_data_per_task()
