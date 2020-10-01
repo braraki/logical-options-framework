@@ -1,5 +1,7 @@
 # The Logical Options Framework
 
+Note: This repository contains code for the discrete delivery domain. A separate repository contains code for the continuous reacher domain.
+
  ## Installation
  
  `conda create --name <env> --file requirements.txt`
