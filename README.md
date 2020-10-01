@@ -8,17 +8,17 @@ Note: This repository contains code for the discrete delivery domain. A separate
  
  ## Running Satisfaction and Composability Experiments
  
- `python tests/satisfaction_delivery.py`
+ For satisfaction experiments, run: `python tests/satisfaction_delivery.py`
  
- `python tests/composability_delivery.py`
+ For composability epxeriments, run: `python tests/composability_delivery.py`
  
  The data generated from these experiments is saved in `dataset/{satisfaction|composability}/{task_name}/{test_num}.npz`
 
  ## Plot Experiments
  
- `python tests/load_and_plot_results_satisfaction.py`
+ To plot satisfaction results: `python tests/load_and_plot_results_satisfaction.py`
  
- `python tests/load_and_plot_results_composability.py`
+ To plot composability results: `python tests/load_and_plot_results_composability.py`
 
  Plots are saved in `dataset/satisfaction` and `dataset/composability`
 
