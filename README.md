@@ -2,16 +2,16 @@
 
  ## Installation
  
- `conda install requirements.txt`
+ `conda create --name <env> --file requirements.txt`
  
  ## Running Satisfaction and Composability Experiments
  
- `python satisfaction_delivery.py`
+ `python tests/satisfaction_delivery.py`
  
- `python composability_delivery.py`
+ `python tests/composability_delivery.py`
  
  ## Visualize Experiments
  
- `python load_and_plot_results_satisfaction.py`
+ `python tests/load_and_plot_results_satisfaction.py`
  
- `python load_and_plot_results_composability.py`
+ `python tests/load_and_plot_results_composability.py`

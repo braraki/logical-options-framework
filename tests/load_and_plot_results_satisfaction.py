@@ -2,17 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-# def load_dataset(exp_name, exp_num):
-#     directory = Path(__file__).parent.parent / 'dataset' / exp_name
-#     # if directory doesn't exist, create it
-#     Path(directory).mkdir(parents=True, exist_ok=True)
-#     file_name = 'results_' + str(exp_num) + '.npz'
-#     path_name = directory / file_name
-    
-#     data = np.load(path_name, allow_pickle=True)
-
-#     return data
-
 def load_dataset(exp_name, method_name, task_name, exp_num):
     directory = Path(__file__).parent.parent / 'dataset' / exp_name / method_name / task_name
     # if directory doesn't exist, create it
@@ -25,7 +14,6 @@ def load_dataset(exp_name, method_name, task_name, exp_num):
     return data['arr_0'][()]
 
 task_reward_bounds = [(-100, -26), (-100, -62), (-100, -21), (-100, -19)]
-# task_reward_bounds = [(-100, -38), (-100, -62), (-100, -21), (-100, -25)]
 task_names = ['complex', 'sequential', 'OR', 'IF']
 method_names = ['lof', 'fsa', 'greedy', 'flat', 'rm']
 method_plot_names = ['LOF-VI', 'LOF-QL', 'Greedy', 'Flat Options', 'Reward Machines']

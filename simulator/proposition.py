@@ -61,27 +61,6 @@ class SameLocationProp(Proposition):
 
         return self.value
 
-# when the car decides to trigger a maneuver
-# true if state[2] == the number associated w/ the maneuver
-class ManeuverProp(Proposition):
-
-    def __init__(self, name, obj_name, option_number):
-        super().__init__(name)
-
-        self.obj = obj_name # typically is the agent
-        self.option_number = option_number
-
-    def eval(self, obj_dict):
-        obj_state = obj_dict[self.obj].state
-
-        # THIS IS A BIG HACK AND I NEED TO FIX IT!
-        self.value = (obj_state[2] == self.option_number) and (obj_state[:2] == [4, 0])
-
-        if self.value is not True and self.value is not False:
-            print("f")
-
-        return self.value
-
 class OnObstacleProp(Proposition):
 
     def __init__(self, name, obj_name, obstacle_name):
@@ -109,20 +88,3 @@ class OnObstacleProp(Proposition):
             print('f')
 
         return self.value
-
-class HoldingBallProp(Proposition):
-
-    # the holder must have a gripper state
-    def __init__(self, name, ball_name):
-        self.name = name
-        self.value = False
-        # names, not the actual objects
-        self.ball = ball_name
-
-    # the ball's state[2] is the prop basically
-    def eval(self, obj_dict):
-        ball = obj_dict[self.ball]
-        self.value = bool(ball.state[2])
-
-        return self.value
-

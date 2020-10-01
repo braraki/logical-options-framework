@@ -1,3 +1,7 @@
+# this is basically the model-free version of LOF with a TM
+# aka, this version has no TM, just FSA states, and it uses
+# q learning instead of value iteration to learn the high-level policy
+
 import time
 from simulator.rendering import Viewer
 from simulator.delivery import DeliverySim
@@ -27,13 +31,13 @@ def test_qlearning(sim, task_spec=None):
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 
-    policy = FlatQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-                                     record_training=True, recording_frequency=20, num_episodes=300)
+    policy = GreedyQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+                                    record_training=True, recording_frequency=20, num_episodes=1000)
 
     results = policy.get_results()
 
     plt.plot(results['steps'], results['reward'])
-    results_path = directory / 'results_flat-options.png'
+    results_path = directory / 'results_greedy.png'
     plt.savefig(results_path)
 
     f = 0
@@ -43,7 +47,7 @@ def test_qlearning(sim, task_spec=None):
     for i in range(5):
         sim.render(mode=render_mode)
         camera = sim.render()
-        option = policy.get_option(sim.env)
+        option = policy.get_option(sim.env, f)
         f_prev = f
         steps_in_option = 0
         while not policy.is_terminated(sim.env, option) and f_prev == f and steps_in_option < max_steps_in_option:
@@ -55,7 +59,7 @@ def test_qlearning(sim, task_spec=None):
             camera = sim.render()
             steps_in_option += 1
             if f == 1:
-                if np.random.uniform() < 0.0:
+                if np.random.uniform() < 1.0:
                     sim.env.prop_dict['canceled'].value = True
                 else:
                     sim.env.prop_dict['canceled'].value = False
@@ -67,7 +71,7 @@ def test_qlearning(sim, task_spec=None):
 
     if render_mode == 'anim':
         animation = camera.animate()
-        animation_file = sim.env.name + '_flat-options.gif'
+        animation_file = sim.env.name + '_greedy.gif'
         animation_path = directory / animation_file
         animation.save(animation_path, writer='imagemagick')
     return 0
