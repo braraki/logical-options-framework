@@ -53,11 +53,9 @@ pip=20.0.2
 prompt_toolkit=3.0.3
 ptyprocess=0.6.0
 pycparser=2.19
-pyglet
 pygments=2.5.2
 python=3.8.1
 python-dateutil=2.8.1
-python_abi
 pyzmq=18.1.1
 readline=7.0
 scipy=1.1.0
