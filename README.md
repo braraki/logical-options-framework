@@ -10,8 +10,16 @@
  
  `python tests/composability_delivery.py`
  
- ## Visualize Experiments
+ The data generated from these experiments is saved in `dataset/{satisfaction|composability}/{task_name}/{test_num}.npz`
+
+ ## Plot Experiments
  
  `python tests/load_and_plot_results_satisfaction.py`
  
  `python tests/load_and_plot_results_composability.py`
+
+ Plots are saved in `dataset/satisfaction` and `dataset/composability`
+
+## Visualize Algorithm
+
+To make animated gifs of any of the algorithms run the associated test file in `tests/test_qlearning_{alg_name}.py`
