@@ -51,41 +51,41 @@ class DeliverySim(GridWorldSim):
 
         # "Agent on Goal A"
         prop_dict['ona'] = SameLocationProp(
-            name='ona',
+            name='a',
             obj_name1='agent',
             obj_name2='goal_a'
             )
 
         # "Agent on Goal B"
         prop_dict['onb'] = SameLocationProp(
-            name='onb',
+            name='b',
             obj_name1='agent',
             obj_name2='goal_b'
             )
 
         # "Agent on Goal C"
         prop_dict['onc'] = SameLocationProp(
-            name='onc',
+            name='c',
             obj_name1='agent',
             obj_name2='goal_c'
             )
 
         # "Agent on Goal H"
         prop_dict['onh'] = SameLocationProp(
-            name='onh',
+            name='h',
             obj_name1='agent',
             obj_name2='goal_h'
         )
 
         # "Delivery C Canceled"
         prop_dict['canceled'] = ExternalProp(
-            name='canceled',
+            name='can',
             value=False
         )
 
         # "Goal A and Delivery C Canceled"
         prop_dict['a_and_canceled'] = CombinedProp(
-            name='a_and_canceled',
+            name='ca',
             prop1=prop_dict['ona'],
             prop2=prop_dict['canceled'],
             prop_idxs=[0,4]
@@ -93,7 +93,7 @@ class DeliverySim(GridWorldSim):
 
         # "Goal B and Delivery C Canceled"
         prop_dict['b_and_canceled'] = CombinedProp(
-            name='b_and_canceled',
+            name='cb',
             prop1=prop_dict['onb'],
             prop2=prop_dict['canceled'],
             prop_idxs=[1,4]
@@ -101,7 +101,7 @@ class DeliverySim(GridWorldSim):
 
         # "Goal C and Delivery C Canceled"
         prop_dict['c_and_canceled'] = CombinedProp(
-            name='c_and_canceled',
+            name='cc',
             prop1=prop_dict['onc'],
             prop2=prop_dict['canceled'],
             prop_idxs=[2,4]
@@ -109,7 +109,7 @@ class DeliverySim(GridWorldSim):
 
         # "Goal H and Delivery B Canceled"
         prop_dict['h_and_canceled'] = CombinedProp(
-            name='h_and_canceled',
+            name='ch',
             prop1=prop_dict['onh'],
             prop2=prop_dict['canceled'],
             prop_idxs=[3,4]
@@ -117,7 +117,7 @@ class DeliverySim(GridWorldSim):
 
         # "Agent on Obstacle"
         prop_dict['onobstacle'] = OnObstacleProp(
-            name='onobstacle',
+            name='o',
             obj_name='agent',
             obstacle_name='obstacles'
         )

@@ -518,12 +518,12 @@ def make_taskspec_delivery4():
 def test_qlearning(sim, task_spec=None):
     sim.reset()
 
-    task_spec, safety_props = make_taskspec_delivery()
+    task_spec, safety_props = make_taskspec_delivery4()
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 
     policy = QLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-    record_training=True, recording_frequency=20, num_episodes=1000)
+    record_training=True, recording_frequency=20, num_episodes=500)
 
     results = policy.get_results()
 
@@ -548,7 +548,7 @@ def test_qlearning(sim, task_spec=None):
             print("option: {} | FSA state: {} | state: {}".format(option, f, sim.env.get_state()))
             camera = sim.render()
             steps_in_option += 1
-            if f == 1:
+            if f == 0 and steps_in_option == 2:
                 if np.random.uniform() < 1.0:
                     sim.env.prop_dict['canceled'].value = True
                 else:

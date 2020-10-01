@@ -2,17 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-# def load_dataset(exp_name, exp_num):
-#     directory = Path(__file__).parent.parent / 'dataset' / exp_name
-#     # if directory doesn't exist, create it
-#     Path(directory).mkdir(parents=True, exist_ok=True)
-#     file_name = 'results_' + str(exp_num) + '.npz'
-#     path_name = directory / file_name
-    
-#     data = np.load(path_name, allow_pickle=True)
-
-#     return data
-
 def load_dataset(exp_name, method_name, task_name, exp_num):
     directory = Path(__file__).parent.parent / 'dataset' / exp_name / method_name / task_name
     # if directory doesn't exist, create it
@@ -25,11 +14,10 @@ def load_dataset(exp_name, method_name, task_name, exp_num):
     return data['arr_0'][()]
 
 task_reward_bounds = [(-100, -26), (-100, -62), (-100, -21), (-100, -19)]
-# task_reward_bounds = [(-100, -38), (-100, -62), (-100, -21), (-100, -25)]
-task_names = ['complex', 'sequential', 'OR', 'IF']
-method_names = ['lof', 'fsa', 'greedy', 'flat', 'rm']
-method_plot_names = ['LOF-VI', 'LOF-QL', 'Greedy', 'Flat Options', 'Reward Machines']
-method_colors = ['b', 'r', 'g', 'y', 'c']
+task_names = ['composite', 'sequential', 'OR', 'IF']
+method_names = ['lof', 'fsa', 'greedy']
+method_plot_names = ['LOF-VI', 'LOF-QL', 'Greedy']
+method_colors = ['b', 'r', 'g']
 
 num_exp = 10
 
@@ -41,7 +29,7 @@ def get_plot_data_for_task(task_num, task_name):
     method_steps = []
 
     for method_name in method_names:
-        first_data = load_dataset('satisfaction', method_name, task_name, 0)
+        first_data = load_dataset('composability', method_name, task_name, 0)
         num_data = len(first_data['reward'])
         steps = first_data['steps']
         method_steps.append(steps)
@@ -50,7 +38,7 @@ def get_plot_data_for_task(task_num, task_name):
         ave_rewards = [0]*num_data
         rewards = []
         for i in range(num_exp):
-            results = load_dataset('satisfaction', method_name, task_name, i)
+            results = load_dataset('composability', method_name, task_name, i)
             # for each experiment, average reward over the tasks
             bounds = task_reward_bounds[task_num]
             for k, reward in enumerate(results['reward']):
@@ -86,7 +74,7 @@ def get_plot_data_over_tasks():
     method_steps = []
 
     for method_name in method_names:
-        first_data = load_dataset('satisfaction', method_name, task_names[0], 0)
+        first_data = load_dataset('composability', method_name, task_names[0], 0)
         num_data = len(first_data['reward'])
         steps = first_data['steps']
         method_steps.append(steps)
@@ -98,7 +86,7 @@ def get_plot_data_over_tasks():
             # for each experiment, average reward over the tasks
             task_ave_rewards = [0]*num_data
             for j, task_name in enumerate(task_names):
-                results = load_dataset('satisfaction', method_name, task_name, i)
+                results = load_dataset('composability', method_name, task_name, i)
                 bounds = task_reward_bounds[j]
                 for k, reward in enumerate(results['reward']):
                     reward = (reward - bounds[0])/(bounds[1]-bounds[0])
@@ -131,8 +119,9 @@ def plot_data_over_tasks():
         method_max_rewards, method_steps = get_plot_data_over_tasks()
 
 
-    for i, (method_name, method_color, ave_reward, min_reward, max_reward, steps) in enumerate(zip(
+    for i, (method_name, method_color, ave_reward, min_reward, max_reward, step) in enumerate(zip(
             method_plot_names, method_colors, method_ave_rewards, method_min_rewards, method_max_rewards, method_steps)):
+        steps = [i for i in range(step)]
         plt.plot(steps, ave_reward, color=method_color, label=method_name)    
         plt.fill_between(steps, min_reward, max_reward, color=method_color, alpha=0.2)
 
@@ -140,16 +129,13 @@ def plot_data_over_tasks():
     # plt.legend(loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.2))
     plt.tight_layout()
     # plt.title('Reward Averaged over Tasks')
-    plt.xlim((0, 150000))
-    plt.xlabel('Number of training steps', fontsize=21)
+    # plt.xlim((0, 150000))
+    plt.xlabel('Number of metapolicy retraining steps', fontsize=21)
     plt.ylabel('Average normalized reward', fontsize=21)
-    plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
     plt.xticks(fontsize=17)
     plt.yticks(fontsize=17)
-    plt.gca().xaxis.offsetText.set_fontsize(17)
 
-
-    directory = Path(__file__).parent.parent / 'dataset' / 'satisfaction'
+    directory = Path(__file__).parent.parent / 'dataset' / 'composability'
     # if directory doesn't exist, create it
     Path(directory).mkdir(parents=True, exist_ok=True)
     file_name = 'results_averaged_over_tasks.png'
@@ -168,8 +154,9 @@ def plot_data_per_task():
         method_ave_rewards, method_min_rewards, \
         method_max_rewards, method_steps = get_plot_data_for_task(i, task_name)
 
-        for i, (method_name, method_color, ave_reward, min_reward, max_reward, steps) in enumerate(zip(
+        for i, (method_name, method_color, ave_reward, min_reward, max_reward, step) in enumerate(zip(
                 method_plot_names, method_colors, method_ave_rewards, method_min_rewards, method_max_rewards, method_steps)):
+            steps = [i for i in range(step)]
             plt.plot(steps, ave_reward, color=method_color, label=method_name)    
             plt.fill_between(steps, min_reward, max_reward, color=method_color, alpha=0.2)
 
@@ -177,15 +164,13 @@ def plot_data_per_task():
         # plt.legend(loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.2))
         plt.tight_layout()
         # plt.title("Reward for {} task".format(task_name))
-        plt.xlim((0, 150000))
-        plt.xlabel('Number of training steps', fontsize=21)
+        # plt.xlim((0, 150000))
+        plt.xlabel('Number of metapolicy retraining steps', fontsize=21)
         plt.ylabel('Average normalized reward', fontsize=21)
-        plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
         plt.xticks(fontsize=17)
         plt.yticks(fontsize=17)
-        plt.gca().xaxis.offsetText.set_fontsize(17)
 
-        directory = Path(__file__).parent.parent / 'dataset' / 'satisfaction'
+        directory = Path(__file__).parent.parent / 'dataset' / 'composability'
         # if directory doesn't exist, create it
         Path(directory).mkdir(parents=True, exist_ok=True)
         file_name = 'results_{}.png'.format(task_name)

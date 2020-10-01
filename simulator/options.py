@@ -1023,7 +1023,7 @@ class LVIMetaPolicy(MetaPolicyBase):
 class DiscreteMetaPolicy(MetaPolicyBase):
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
-                 record_training=False, recording_frequency=5, experiment_num=0):
+                 record_training=False, recording_frequency=100, experiment_num=0):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
                          num_episodes, episode_length, gamma, alpha, epsilon)
 
@@ -1164,12 +1164,27 @@ class DiscreteMetaPolicy(MetaPolicyBase):
                 self.training_last_state.append(final_f)
             print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
 
+    def record_composability_results(self, env, task_spec, num_iter):
+        initial_state = env.get_state()
+        rewards, successes, final_fs = self.make_and_evaluate_policy(env, task_spec, self.experiment_num, num_iter=num_iter)
+        env.set_state(initial_state)
+        self.composability_reward = rewards
+        self.composability_success = successes
+        self.composability_last_state = final_fs
+        self.composability_steps = num_iter
+        # print("Episode: {}\t| Reward: {}\t| Success: {}".format(i, episode_reward, success))
+
     def get_results(self):
         if self.record_training:
             return {'reward': self.training_reward, 'steps': self.training_steps,
                     'success': self.training_success, 'last_state': self.training_last_state}
         else:
             return None
+
+    def get_composability_results(self, task_name):
+        return {'reward': self.composability_reward, 'steps': self.composability_steps,
+                'success': self.composability_success, 'last_state': self.composability_last_state,
+                'task_name': task_name}
 
     def if_experiment_modification(self, env, f, experiment_num, episode_num, task_spec=None):
         # if task_spec is None, use the training task_spec. Otherwise use
@@ -1201,7 +1216,7 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
-                 record_training=False, recording_frequency=5, experiment_num=0):
+                 record_training=False, recording_frequency=100, experiment_num=0):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
                          num_episodes, episode_length, gamma, alpha, epsilon,
                          record_training, recording_frequency, experiment_num)
@@ -1238,7 +1253,7 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
 
         env.set_state(initial_state)
 
-    def evaluate_policy(self, env, episode_num, experiment_num=0, task_spec=None):
+    def evaluate_policy(self, env, episode_num, experiment_num=0, task_spec=None, Q=None):
         # if a task_spec is given, use that one (for composability experiments)
         # otherwise use the one used during training
         if task_spec is None:
@@ -1246,7 +1261,10 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
 
         starting_state = env.get_state()
 
-        self.Q = self.make_policy(env, task_spec)
+        if Q is None:
+            self.Q = self.make_policy(env, task_spec)
+        else:
+            self.Q = Q
         f = 0
         goal_state = task_spec.nF - 1
         max_steps_in_option = 30
@@ -1349,6 +1367,38 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
             V = np.sum(preV*C, axis=1)
 
         return Q
+
+    def make_and_evaluate_policy(self, env, task_spec, experiment_num, num_iter=50):
+        rewards = []
+        successes = []
+        fs = []
+
+        R = self.make_reward_function(task_spec)
+        V = self.init_value_function(self.ss_size, task_spec.nF)
+        PM = self.P[None, None, ...]
+        PM = np.tile(PM, (task_spec.nF, task_spec.nF, 1, 1))
+
+        preC = task_spec.tm[..., None]*PM
+        C = np.sum(preC, axis=2)
+        # Q: f x s x o
+        Q = np.zeros((task_spec.nF, self.ss_size, self.nO))
+        for k in range(num_iter):
+            for i, o in enumerate(self.poss):
+                preQ = np.multiply(R[..., i].T, np.tile(self.option_rewards[i, :, None], [1, task_spec.nF]) - 1) \
+                       + o.dot(V.T)
+                # (f x s)
+                Q[..., i] = preQ.T
+
+            V = np.max(Q, axis=2)
+            preV = np.tile(V[None, ...], (task_spec.nF, 1, 1))
+
+            V = np.sum(preV*C, axis=1)
+            reward, success, f = self.evaluate_policy(env, k, experiment_num, task_spec=task_spec, Q=Q)
+            rewards.append(reward)
+            successes.append(success)
+            fs.append(f)
+
+        return rewards, successes, fs
 
 # NO HIGH-LEVEL FSA USED HERE
 # (fsa stuff still used at the low level for safety stuff)
@@ -1544,7 +1594,7 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
-                 record_training=False, recording_frequency=20, experiment_num=0):
+                 record_training=False, recording_frequency=100, experiment_num=0):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
                          num_episodes, episode_length, gamma, alpha, epsilon,
                          record_training, recording_frequency, experiment_num)
@@ -1633,13 +1683,17 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
 
         return Q
 
-    def evaluate_policy(self, env, episode_num, experiment_num=0, task_spec=None):
+    def evaluate_policy(self, env, episode_num, experiment_num=0, task_spec=None, Q=None):
         if task_spec is None:
             task_spec = self.task_spec
 
         starting_state = env.get_state()
 
-        self.Q = self.high_level_q_learning(env, env.get_state(), task_spec=task_spec)
+        if Q is None:
+            self.Q = self.high_level_q_learning(env, env.get_state(), task_spec=task_spec)
+        else:
+            self.Q = Q
+
         f = 0
         goal_state = task_spec.nF - 1
         max_steps_in_option = 30
@@ -1692,6 +1746,70 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
 
         return reward, success, f
 
+    def make_and_evaluate_policy(self, env, task_spec, experiment_num, alpha=0.5, num_iter=300):
+        if task_spec is None:
+            task_spec = self.task_spec
+
+        rewards = []
+        successes = []
+        fs = []
+
+        previous_start_state = env.get_state()
+        start_state = previous_start_state
+
+        nF = task_spec.nF
+
+        Q = np.zeros((nF, self.ss_size, self.nO))
+        V = np.zeros((nF, self.ss_size))
+
+        num_episodes = num_iter
+        episode_length = 10
+        gamma = 1.
+        epsilon = 0.4
+        
+        goal_state = task_spec.nF - 1
+        for i in range(num_episodes):
+            f = 0 # i % (nF - 1) # cycle through the FSA states except the goal state
+            if i % 2 == 0:
+                if task_spec.spec == '(F (c & F a) & G ! can) | (F a & F can) & G ! o':
+                    f = 3
+                if task_spec.spec == '(F((a|b) & F(c & F home)) & G ! can) | (F((a|b) & F home) & F can) & G ! o':
+                    f = 2
+            env.set_state(start_state)
+            num_steps = 0
+            while num_steps < episode_length:
+                current_state = env.state_to_idx(env.get_state())
+
+                if np.random.uniform() < epsilon:
+                    option_index = np.random.choice(range(self.nO))
+                else:
+                    option_index = np.argmax(Q[f, current_state])
+
+                next_state = np.argmax(self.poss[option_index][current_state].toarray())
+                env.set_state(env.idx_to_state(next_state))
+                # self.if_experiment_modification(env, f, 0, i)
+                next_f = self.get_fsa_state(env, f, task_spec.tm)
+
+                reward = (task_spec.task_state_costs[f]) * (self.options[option_index].reward[current_state]-1)
+
+                q_update = reward + gamma * V[next_f, next_state] - Q[f, current_state, option_index]
+                Q[f, current_state, option_index] += alpha * q_update
+                V = np.max(Q, axis=2)
+
+                f = next_f
+                # print(f)
+                num_steps += 1
+            
+            env.set_state(start_state)
+            reward, success, final_f = self.evaluate_policy(env, i, experiment_num=experiment_num, task_spec=task_spec, Q=Q)
+            rewards.append(reward)
+            successes.append(success)
+            fs.append(final_f)
+
+        env.set_state(previous_start_state)
+
+        return rewards, successes, fs
+
 # same as QLearningMetaPolicy except instead of using value iteration
 # to find the shortest path thru the FSA, just greedily choose the next option
 # with the highest reward (lowest cost)
@@ -1699,7 +1817,7 @@ class GreedyQLearningMetaPolicy(DiscreteMetaPolicy):
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
-                 record_training=False, recording_frequency=5, experiment_num=0):
+                 record_training=False, recording_frequency=100, experiment_num=0):
         super().__init__(subgoals, task_spec, safety_props, safety_specs, env,
                          num_episodes, episode_length, gamma, alpha, epsilon,
                          record_training, recording_frequency, experiment_num)
@@ -1813,3 +1931,14 @@ class GreedyQLearningMetaPolicy(DiscreteMetaPolicy):
         env.set_state(starting_state)
 
         return reward, success, f
+
+    def make_and_evaluate_policy(self, env, task_spec, experiment_num, num_iter):
+        rewards = []
+        successes = []
+        fs = []
+        for i in range(num_iter):
+            reward, success, f = self.evaluate_policy(env, i, experiment_num, task_spec=task_spec)
+            rewards.append(reward)
+            successes.append(success)
+            fs.append(f)
+        return rewards, successes, fs

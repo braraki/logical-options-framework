@@ -70,7 +70,7 @@ class Viewer(object):
             loc='upper right', 
             shadow=False,
             handles=legend_keys,
-            bbox_to_anchor=(1.55, 1.)
+            bbox_to_anchor=(1.45, 1.)
             )
 
         prop_legend_keys = []
@@ -85,6 +85,7 @@ class Viewer(object):
         )
 
         plt.gca().add_artist(legend1)
+        plt.tight_layout()
 
         if self.mode == 'human':
             plt.draw()
