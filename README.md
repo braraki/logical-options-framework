@@ -4,7 +4,7 @@ Note: This repository contains code for the discrete delivery domain. A separate
 
  ## Installation
  
- `conda create --name <env> --file requirements.txt`
+ `conda create --name <env> --file environment.yml`
  
  ## Running Satisfaction and Composability Experiments
  
