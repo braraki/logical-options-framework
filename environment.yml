@@ -3,19 +3,11 @@ channels:
   - defaults
 dependencies:
   - bzip2=1.0.8
-  - ca-certificates=2020.6.20
   - certifi=2020.6.20
-  - ffmpeg=4.3.1
   - future=0.18.2
-  - gmp=6.2.0
-  - gnutls=3.6.13
   - lame=3.100
-  - libiconv=1.16
   - nettle=3.4.1
-  - openh264=2.1.1
   - openssl=1.1.1g
-  - pyglet=1.5.7
-  - python_abi=3.8
   - x264=1!152.20180806
   - _libgcc_mutex=0.1
   - astroid=2.4.2
