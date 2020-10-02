@@ -4,8 +4,10 @@ Note: This repository contains code for the discrete delivery domain. A separate
 
  ## Installation
  
- `conda create --name <env> --file environment.yml`
+ `conda env create -f environment.yml`
  
+ will create a conda environment called 'lof'
+
  ## Running Satisfaction and Composability Experiments
  
  For satisfaction experiments, run: `python tests/satisfaction_delivery.py`
