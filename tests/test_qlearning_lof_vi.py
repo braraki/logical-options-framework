@@ -1,7 +1,7 @@
 import time
 from simulator.rendering import Viewer
 from simulator.delivery import DeliverySim
-from simulator.options import *
+from simulator.options import QLearningMetaPolicy
 from celluloid import Camera
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -69,6 +69,7 @@ def test_qlearning(sim, task_spec=None):
         animation_file = sim.env.name + '_lof-vi.gif'
         animation_path = directory / animation_file
         animation.save(animation_path, writer='imagemagick')
+        print(f"Saved animation in {animation_path}")
     return 0
 
 if __name__ == '__main__':

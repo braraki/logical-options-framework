@@ -1,6 +1,3 @@
-"""
-2D gridworld rendering framework using matplotlib
-"""
 from __future__ import division
 import os
 import sys
@@ -14,6 +11,11 @@ import matplotlib.animation as animation
 import matplotlib.patches as mpatches
 
 from celluloid import Camera
+
+"""
+Author: Brandon Araki
+2D gridworld rendering framework using matplotlib
+"""
 
 class Viewer(object):
     def __init__(self, mode='human'):

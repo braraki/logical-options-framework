@@ -12,6 +12,22 @@ import random
 import os
 import sys
 
+"""
+Author: Brandon Araki
+This file contains the bulk of the algorithmic implementation of
+the Logical Options Framework.
+
+Subgoal: defines subgoals used in planning
+SafetySpec: defines the safety specification used in planning
+TaskSpec: defines the task specification used in planning
+
+OptionBase, VIOption, QLearningOption: define low-level options
+
+MetaPolicyBase, DiscreteMetaPolicy, QLearningMetaPolicy,
+FlatQLearningMetaPolicy, FSAQLearningMetaPolicy,
+GreedyQLearningMetaPolicy: define high-level meta-policies
+"""
+
 class Subgoal(object):
 
     def __init__(self, name, prop_index, subgoal_index, state_index):
@@ -63,6 +79,10 @@ class OptionBase(object):
         raise NotImplementedError()
 
 class VIOption(OptionBase):
+    """VIOption
+    Learn a low-level option for reaching a subgoal
+    using value iteration.
+    """
 
     def __init__(self, safety_spec, subgoal, T, P, ss_size):
         # subgoal is the index of the subgoal prop
@@ -157,6 +177,10 @@ class VIOption(OptionBase):
         return V, Q    
 
 class QLearningOption(OptionBase):
+    """QLearningOption
+    Learn a low-level option for reaching a subgoal
+    using q-learning.
+    """
 
     def __init__(self, safety_spec, subgoal, T, P, ss_size):
         # subgoal is the index of the subgoal prop
@@ -274,8 +298,10 @@ class MetaPolicyBase(object):
     def init_poss(self, subgoals):
         raise NotImplementedError
 
-# abstract class for metapolicies on discrete spaces
 class DiscreteMetaPolicy(MetaPolicyBase):
+    """DiscreteMetaPolicy
+    Abstract class for metapolicies on discrete spaces
+    """
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
                  record_training=False, recording_frequency=100, experiment_num=0):
@@ -468,6 +494,10 @@ class DiscreteMetaPolicy(MetaPolicyBase):
                 env.prop_dict['canceled'].value = False
 
 class QLearningMetaPolicy(DiscreteMetaPolicy):
+    """QLearningMetaPolicy
+    Find a meta-policy using LOF where the low-level
+    options are found using q-learning.
+    """
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
@@ -655,9 +685,12 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
 
         return rewards, successes, fs
 
-# NO HIGH-LEVEL FSA USED HERE
-# (fsa stuff still used at the low level for safety stuff)
 class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
+    """FlatQLearningMetaPolicy
+    No high-level FSA is used here. Instead,
+    non-hiearchical q-learning is used to learn a meta-policy
+    over the low-level options.
+    """
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
@@ -840,12 +873,14 @@ class FlatQLearningMetaPolicy(DiscreteMetaPolicy):
 
         return option
 
-# NO ACCESS TO TM HERE
-# basically, it's model-free LOF where q-learning
-# must be used to learn the high-level policy
-# performance should be about the same as normal LOF,
-# but this alg is not composable
 class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
+    """
+    This class does not have access to the transition function
+    of the automaton defining the task spec.
+    Therefore it must use q-learning to learn a meta-policy.
+    Performance should be about the same as normal LOF,
+    but this alg is not composable
+    """
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,
@@ -1065,10 +1100,12 @@ class FSAQLearningMetaPolicy(DiscreteMetaPolicy):
 
         return rewards, successes, fs
 
-# same as QLearningMetaPolicy except instead of using value iteration
-# to find the shortest path thru the FSA, just greedily choose the next option
-# with the highest reward (lowest cost)
 class GreedyQLearningMetaPolicy(DiscreteMetaPolicy):
+    """
+    This is the same as QLearningMetaPolicy except instead of using value iteration
+    to find the shortest path thru the FSA, it greedily chooses the next option
+    with the highest reward (lowest cost)
+    """
 
     def __init__(self, subgoals, task_spec, safety_props, safety_specs, env,
                  num_episodes=1000, episode_length=100, gamma=1., alpha=0.5, epsilon=0.3,

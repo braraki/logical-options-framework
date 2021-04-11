@@ -14,6 +14,16 @@ import sys
 
 from .options import *
 
+"""
+Author: Brandon Araki
+These classes implement the algorithm most similar to LOF,
+which is called Q-learning with Reward Machines (QRM). See
+R Toro Icarte, TQ Klassen, R Valezano, and SA McIlraith,
+Using Reward Machines for High-Level Task Specification
+and Decomposition in Reinforcement Learning, ICML 2018
+for more information.
+"""
+
 class RewardMachinePolicy(OptionBase):
 
     def __init__(self, task_spec, ss_size, nA, alpha=0.5):
