@@ -32,7 +32,11 @@ To make animated gifs of any of the algorithms run the associated test file in `
 
 ## Overview of the Code
 
-The code for the LOF algorithm is stored in the `simulator` folder. The code can be divided into three main parts:
+The code for the LOF algorithm is stored in the `simulator` folder. The code can be divided into four main parts:
+
+### Options and Meta-policies
+
+The core of the LOF algorithm is defined in `options.py`. This file contains all of the classes critical for LOF, including definitions of subgoals, task specs, and safety specs; classes for low-level options; and classes for high-level meta-policies. The main LOF algorithm is found in `options.QLearningMetaPolicy`. This class learns low-level options to achieve subgoals using Q-learning and find a meta-policy over the options using Logical Value Iteration.
 
 ### Environment
 
@@ -46,7 +50,3 @@ The `Sim` class and its children define "simulators" for environments, where you
 
 In this code base, "objects" are things that are included in the environment that have their own state and dynamics, such as the agent, a falling block, or a goal. Objects are defined in `object.py`.
 Propositions are logical true/false events in an environment, and they are used to determine transitions in the logical automation. They are defined in `proposition.py`.
-
-### Options and Meta-policies
-
-The core of the LOF algorithm is defined in `options.py`. This file contains all of the classes critical for LOF, including definitions of subgoals, task specs, and safety specs; classes for low-level options; and classes for high-level meta-policies. The main LOF algorithm is found in `options.QLearningMetaPolicy`. This class learns low-level options to achieve subgoals using Q-learning and find a meta-policy over the options using Logical Value Iteration.

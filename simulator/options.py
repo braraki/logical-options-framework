@@ -509,6 +509,9 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
         self.Q = self.make_policy(env, task_spec)
 
     def q_learning(self, env):
+        """
+        Use q_learning to learn low-level options for each subgoal.
+        """
         nO = len(self.options)
 
         initial_state = env.get_state()
@@ -596,17 +599,20 @@ class QLearningMetaPolicy(DiscreteMetaPolicy):
         return reward, success, f
 
     def make_policy(self, env, task_spec, num_iter=50):
-        # TM: f x f x p
-        # P: p x s
+        """
+        This function implements Logical Value Iteration
+        """
+        # transition function of FSA TM: f x f x p
+        # proposition map P: p x s
 
-        # T: a x s x s (a list over a)
+        # env transition function T: a x s x s (a list over a)
 
-        # self.option_reward: o x s
-        # poss : o x s x s
+        # reward function of option self.option_reward: o x s
+        # transitions of option poss : o x s x s
 
-        # self.nF
-        # self. ss_size
-        # self.nO
+        # num FSA states: self.nF
+        # size of state space: self.ss_size
+        # num options: self.nO
 
         # R: f x s x o
         R = self.make_reward_function(task_spec)
