@@ -1,18 +1,19 @@
 import numpy as np
 
 class Sim(object):
-    r"""Based off of the OpenAI Gym class Env.
-        But this class is for IMITATION LEARNING, not RL. So reward-related
-        stuff has been taken out.
-        The main API methods that users of this class need to know are:
-            step
-            reset
-            render
-            close
-            seed
-        And set the following attributes:
-            action_space: The Space object corresponding to valid actions
-            observation_space: The Space object corresponding to valid observations
+    """Sim
+    Based off of the OpenAI Gym class Env.
+    But this class is for IMITATION LEARNING, not RL. So reward-related
+    stuff has been taken out.
+    The main API methods that users of this class need to know are:
+        step
+        reset
+        render
+        close
+        seed
+    And set the following attributes:
+        action_space: The Space object corresponding to valid actions
+        observation_space: The Space object corresponding to valid observations
     """
 
     action_space = None

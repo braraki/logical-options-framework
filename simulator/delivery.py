@@ -1,4 +1,3 @@
-"""1D arm picks up and drops balls into a basket"""
 import numpy as np
 from numpy.random import randint
 from collections import OrderedDict
@@ -19,9 +18,17 @@ from .proposition import *
 from .environment import *
 
 class DeliverySim(GridWorldSim):
+    """DeliverySim
+    Author: Brandon Araki
+    Defines a discrete 2D gridworld environment that can be used for simulating
+    delivery tasks. The environment is 15x15 with 3x3 blocks of 'buildings'
+    arranged in a grid. There are four subgoals a, b, c, h; one event
+    prop 'can' for indicating when a delivery is canceled; and one
+    obstacle prop o.
+    """
 
-    def __init__(self, dom_size=[15, 15], n_domains=100, n_traj=2):
-        super().__init__(dom_size, n_domains, n_traj)
+    def __init__(self, dom_size=[15, 15]):
+        super().__init__(dom_size)
 
     def reset(self):
         self.obj_dict.clear()
@@ -39,53 +46,62 @@ class DeliverySim(GridWorldSim):
         self.env.add_props(self.prop_dict)
 
     def init_objects(self):
-        # making obstacles has to come first so
-        # the agent and goals can be placed around
-        # the obstacles    
+        """
+        Create the obstacles, agent, and goals in the enviornment.
+        Making obstacles has to come first so the agent and goals can
+        be placed around the obstacles.
+        """    
         self.make_obstacles()
         self.make_agent()
         self.make_goals()
 
     def add_props(self):
+        """
+        Create a dictionary of propositions with 
+        subgoals a, b, c, h; event prop 'can';
+        obstacle prop 'o', and combined props 'a&can',
+        'b&can', 'c&can', 'h&can'.
+        """
+
         prop_dict = OrderedDict()
 
         # "Agent on Goal A"
         prop_dict['ona'] = SameLocationProp(
-            name='ona',
+            name='a',
             obj_name1='agent',
             obj_name2='goal_a'
             )
 
         # "Agent on Goal B"
         prop_dict['onb'] = SameLocationProp(
-            name='onb',
+            name='b',
             obj_name1='agent',
             obj_name2='goal_b'
             )
 
         # "Agent on Goal C"
         prop_dict['onc'] = SameLocationProp(
-            name='onc',
+            name='c',
             obj_name1='agent',
             obj_name2='goal_c'
             )
 
         # "Agent on Goal H"
         prop_dict['onh'] = SameLocationProp(
-            name='onh',
+            name='h',
             obj_name1='agent',
             obj_name2='goal_h'
         )
 
         # "Delivery C Canceled"
         prop_dict['canceled'] = ExternalProp(
-            name='canceled',
+            name='can',
             value=False
         )
 
         # "Goal A and Delivery C Canceled"
         prop_dict['a_and_canceled'] = CombinedProp(
-            name='a_and_canceled',
+            name='ca',
             prop1=prop_dict['ona'],
             prop2=prop_dict['canceled'],
             prop_idxs=[0,4]
@@ -93,7 +109,7 @@ class DeliverySim(GridWorldSim):
 
         # "Goal B and Delivery C Canceled"
         prop_dict['b_and_canceled'] = CombinedProp(
-            name='b_and_canceled',
+            name='cb',
             prop1=prop_dict['onb'],
             prop2=prop_dict['canceled'],
             prop_idxs=[1,4]
@@ -101,7 +117,7 @@ class DeliverySim(GridWorldSim):
 
         # "Goal C and Delivery C Canceled"
         prop_dict['c_and_canceled'] = CombinedProp(
-            name='c_and_canceled',
+            name='cc',
             prop1=prop_dict['onc'],
             prop2=prop_dict['canceled'],
             prop_idxs=[2,4]
@@ -109,7 +125,7 @@ class DeliverySim(GridWorldSim):
 
         # "Goal H and Delivery B Canceled"
         prop_dict['h_and_canceled'] = CombinedProp(
-            name='h_and_canceled',
+            name='ch',
             prop1=prop_dict['onh'],
             prop2=prop_dict['canceled'],
             prop_idxs=[3,4]
@@ -117,16 +133,18 @@ class DeliverySim(GridWorldSim):
 
         # "Agent on Obstacle"
         prop_dict['onobstacle'] = OnObstacleProp(
-            name='onobstacle',
+            name='o',
             obj_name='agent',
             obstacle_name='obstacles'
         )
 
         return prop_dict
 
-    # create and initialize objects
-    # and add them to the env
     def add_objects(self):
+        """
+        Create and initialize objects and add them
+        to the environment.
+        """
         obj_dict = OrderedDict()
 
         obj_dict['agent'] = GridAgentObj(name='agent', color=[.7, .7, .7],
@@ -144,9 +162,10 @@ class DeliverySim(GridWorldSim):
         return obj_dict
 
     def make_agent(self):
-        # this will create the agent on either the
-        # left or right side of the gridworld
-        # at a random height
+        """
+        Create the agent on either the left or right side of
+        the gridworld at a random height.
+        """
         mask = np.copy(self.obstacles.state)
         # self.agent.create_with_mask(
         #     x_range=[0, self.dom_size[1]-1],
@@ -160,13 +179,11 @@ class DeliverySim(GridWorldSim):
         )
 
     def make_goals(self):
+        """
+        Add subgoals a, b, c, h to the environment as objects.
+        """
         mask = np.copy(self.obstacles.state)
         mask[self.agent.state[0], self.agent.state[1]] = 1
-        # self.goal_a.create_with_mask(
-        #     x_range=[i for i in range(self.dom_size[0])],
-        #     y_range=[i for i in range(self.dom_size[1])],
-        #     mask=mask
-        # )
         self.goal_a.create_with_mask(
             x_range=[1],
             y_range=[7],
@@ -181,11 +198,6 @@ class DeliverySim(GridWorldSim):
         )
 
         mask[self.goal_b.state[0], self.goal_b.state[1]] = 1
-        # self.goal_c.create_with_mask(
-        #     x_range=[i for i in range(self.dom_size[0])],
-        #     y_range=[i for i in range(self.dom_size[1])],
-        #     mask=mask
-        # )
         self.goal_c.create_with_mask(
             x_range=[3],
             y_range=[13],
@@ -200,22 +212,7 @@ class DeliverySim(GridWorldSim):
         )
 
     def make_obstacles(self):
+        """
+        Add a grid of 3x3 obstacles to the environment
+        """
         self.obstacles.add_obstacle_grid(obstacle_size=3)
-
-    # save proposition state of the environment
-    # move objects
-    # update proposition state based on object states
-    def step(self, action_name):
-        self.env.step(action_name)
-
-        return self.env
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def render(self, mode='human'):
-        if self.viewer == None:
-            self.viewer = Viewer(mode=mode)
-
-        return self.viewer.render(self.env)

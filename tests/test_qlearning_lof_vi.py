@@ -1,12 +1,11 @@
 import time
 from simulator.rendering import Viewer
 from simulator.delivery import DeliverySim
-from simulator.options import *
+from simulator.options import QLearningMetaPolicy
 from celluloid import Camera
 import matplotlib.pyplot as plt
 from pathlib import Path
 from specs import *
-
 # human: show plots
 # anim: don't show plots but save a gif
 # note: the first call to 'render' sets the render mode
@@ -23,17 +22,17 @@ def test_qlearning(sim, task_spec=None):
     # delivery2: sequential task
     # delivery3: OR task
     # delivery4: IF task
-    task_spec, safety_props = make_taskspec_delivery1()
+    task_spec, safety_props = make_taskspec_delivery4()
     safety_specs = make_safetyspecs_delivery()
     subgoals = make_subgoals_delivery(sim.env)
 
-    policy = FlatQLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
-                                     record_training=True, recording_frequency=20, num_episodes=300)
+    policy = QLearningMetaPolicy(subgoals, task_spec, safety_props, safety_specs, sim.env,
+    record_training=True, recording_frequency=20, num_episodes=500)
 
     results = policy.get_results()
 
     plt.plot(results['steps'], results['reward'])
-    results_path = directory / 'results_flat-options.png'
+    results_path = directory / 'results_lof-vi.png'
     plt.savefig(results_path)
 
     f = 0
@@ -43,7 +42,7 @@ def test_qlearning(sim, task_spec=None):
     for i in range(5):
         sim.render(mode=render_mode)
         camera = sim.render()
-        option = policy.get_option(sim.env)
+        option = policy.get_option(sim.env, f)
         f_prev = f
         steps_in_option = 0
         while not policy.is_terminated(sim.env, option) and f_prev == f and steps_in_option < max_steps_in_option:
@@ -54,8 +53,8 @@ def test_qlearning(sim, task_spec=None):
             print("option: {} | FSA state: {} | state: {}".format(option, f, sim.env.get_state()))
             camera = sim.render()
             steps_in_option += 1
-            if f == 1:
-                if np.random.uniform() < 0.0:
+            if f == 0 and steps_in_option == 2:
+                if np.random.uniform() < 1.0:
                     sim.env.prop_dict['canceled'].value = True
                 else:
                     sim.env.prop_dict['canceled'].value = False
@@ -67,9 +66,10 @@ def test_qlearning(sim, task_spec=None):
 
     if render_mode == 'anim':
         animation = camera.animate()
-        animation_file = sim.env.name + '_flat-options.gif'
+        animation_file = sim.env.name + '_lof-vi.gif'
         animation_path = directory / animation_file
         animation.save(animation_path, writer='imagemagick')
+        print(f"Saved animation in {animation_path}")
     return 0
 
 if __name__ == '__main__':
